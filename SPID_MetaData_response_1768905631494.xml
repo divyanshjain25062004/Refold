@@ -1,0 +1,825 @@
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:Reference Uri="https://psegdcsmartadm.devdemo.hexagonppm.com/OctavePIDWebApi/SPID/V2/annotations/$metadata">
+    <edmx:Include Namespace="Com.Ingr.SPID.V2" Alias="annotations" />
+  </edmx:Reference>
+  <edmx:Reference Uri="https://psegdcsmartadm.devdemo.hexagonppm.com/OctavePIDWebApi/SPID/V2/Vocabularies/Core/$metadata">
+    <edmx:Include Namespace="Com.Ingr.Core.V1" Alias="CoreVocabulary" />
+  </edmx:Reference>
+  <edmx:Reference Uri="https://psegdcsmartadm.devdemo.hexagonppm.com/OctavePIDWebApi/SPID/V2/Vocabularies/Measures/$metadata">
+    <edmx:Include Namespace="Com.Ingr.Measures.V1" Alias="MeasuresVocabulary" />
+  </edmx:Reference>
+  <edmx:Reference Uri="https://psegdcsmartadm.devdemo.hexagonppm.com/OctavePIDWebApi/SPID/V2/Sites('OctaveSPIDAPISite1')/Plants('PDA-PO')/$metadata">
+    <edmx:Include Namespace="Com.Ingr.SPID.V2.OctaveSPIDAPISite1.PDA-PO" Alias="OctaveSPIDAPISite1_PDA-PO" />
+  </edmx:Reference>
+  <edmx:Reference Uri="https://psegdcsmartadm.devdemo.hexagonppm.com/OctavePIDWebApi/SPID/V2/Vocabularies/Capabilities/$metadata">
+    <edmx:Include Namespace="Com.Ingr.Capabilities.V1" Alias="CapabilitiesVocabulary" />
+  </edmx:Reference>
+  <edmx:Reference Uri="https://psegdcsmartadm.devdemo.hexagonppm.com/OctavePIDWebApi/SPID/V2/Capabilities/$metadata">
+    <edmx:Include Namespace="Com.Ingr.Capabilities.V1" Alias="Capabilities" />
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema Namespace="Com.Ingr.Core.V1" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <ComplexType Name="DynamicEdmComplexObject" Abstract="true" OpenType="true" />
+      <ComplexType Name="ResourceLocation" BaseType="Com.Ingr.Core.V1.DynamicEdmComplexObject" OpenType="true">
+        <Property Name="BaseUri" Type="Edm.String" Nullable="false" />
+        <Property Name="ResourceUri" Type="Edm.String" Nullable="false" />
+      </ComplexType>
+      <ComplexType Name="ReportResult" BaseType="Com.Ingr.Core.V1.DynamicEdmComplexObject" OpenType="true">
+        <Property Name="Id" Type="Edm.String" Nullable="false" />
+        <Property Name="Url" Type="Edm.String" Nullable="false" />
+      </ComplexType>
+      <ComplexType Name="FileUri" BaseType="Com.Ingr.Core.V1.DynamicEdmComplexObject" OpenType="true">
+        <Property Name="Id" Type="Edm.String" Nullable="false" />
+        <Property Name="FileId" Type="Edm.String" Nullable="false" />
+        <Property Name="Purpose" Type="Com.Ingr.Core.V1.FilePurpose" />
+        <Property Name="Uri" Type="Edm.String" Nullable="false" />
+      </ComplexType>
+      <ComplexType Name="ObjectHierarchy" BaseType="Com.Ingr.Core.V1.DynamicEdmComplexObject" OpenType="true">
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="ResourceIds" Type="Collection(Edm.String)" />
+      </ComplexType>
+      <ComplexType Name="PropertyDefinition" BaseType="Com.Ingr.Core.V1.DynamicEdmComplexObject" OpenType="true">
+        <Property Name="PropertyName" Type="Edm.String" Nullable="false" />
+        <Property Name="PropertyType" Type="Edm.String" />
+        <Property Name="SelectListId" Type="Edm.String" />
+        <Property Name="Computed" Type="Edm.Boolean" />
+        <Property Name="DisplayName" Type="Edm.String" />
+      </ComplexType>
+      <ComplexType Name="ColumnDefinition" BaseType="Com.Ingr.Core.V1.DynamicEdmComplexObject" OpenType="true">
+        <Property Name="PropertyName" Type="Edm.String" Nullable="false" />
+        <Property Name="TypeName" Type="Edm.String" />
+        <Property Name="IsReadOnly" Type="Edm.Boolean" />
+        <Property Name="DisplayName" Type="Edm.String" />
+      </ComplexType>
+      <ComplexType Name="ParametricFilterDefinition" BaseType="Com.Ingr.Core.V1.DynamicEdmComplexObject" OpenType="true">
+        <Property Name="SupportedParameters" Type="Collection(Edm.String)" />
+        <Property Name="SupportedObjectTypes" Type="Collection(Edm.String)" />
+        <Property Name="SupportedObjectHierarchies" Type="Collection(Edm.String)" />
+        <Property Name="SupportedQueryOptions" Type="Collection(Edm.String)" />
+        <Property Name="SupportedFilterableProperties" Type="Collection(Com.Ingr.Core.V1.PropertyDefinition)" />
+        <Property Name="ColumnDefinitions" Type="Collection(Com.Ingr.Core.V1.ColumnDefinition)" />
+      </ComplexType>
+      <EntityType Name="DynamicEdmEntityObject" Abstract="true" OpenType="true">
+        <Key>
+          <PropertyRef Name="Id" />
+        </Key>
+        <Property Name="Id" Type="Edm.String" Nullable="false" />
+        <Property Name="ConcurrencyToken" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="PbsItem" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" Abstract="true" OpenType="true">
+        <NavigationProperty Name="Parent" Type="Com.Ingr.Core.V1.PbsItem" />
+      </EntityType>
+      <EntityType Name="ViewableObject" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" Abstract="true" OpenType="true">
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="GraphicType" Type="Com.Ingr.Core.V1.GraphicType" />
+        <Property Name="AuthoringApp" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="SelectListItem" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true">
+        <Property Name="Value" Type="Edm.Int32" />
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="Description" Type="Edm.String" />
+        <NavigationProperty Name="ParentList" Type="Com.Ingr.Core.V1.SelectList" />
+        <NavigationProperty Name="Parent" Type="Com.Ingr.Core.V1.SelectListItem" />
+        <NavigationProperty Name="Descendants" Type="Collection(Com.Ingr.Core.V1.SelectListItem)" />
+      </EntityType>
+      <EntityType Name="SelectList" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true">
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="HierarchyName" Type="Edm.String" />
+        <NavigationProperty Name="Parent" Type="Com.Ingr.Core.V1.SelectList" />
+        <NavigationProperty Name="Descendant" Type="Com.Ingr.Core.V1.SelectList" />
+        <NavigationProperty Name="Items" Type="Collection(Com.Ingr.Core.V1.SelectListItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="ReportParameter" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true">
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="DisplayName" Type="Edm.String" Nullable="false" />
+        <Property Name="Description" Type="Edm.String" />
+        <Property Name="ParameterType" Type="Edm.String" Nullable="false" />
+        <Property Name="IsRequired" Type="Edm.Boolean" />
+        <Property Name="DefaultValue" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Report" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true">
+        <Property Name="DisplayName" Type="Edm.String" Nullable="false" />
+        <Property Name="Description" Type="Edm.String" />
+        <NavigationProperty Name="Parameters" Type="Collection(Com.Ingr.Core.V1.ReportParameter)" ContainsTarget="true" />
+        <NavigationProperty Name="Instances" Type="Collection(Com.Ingr.Core.V1.ReportInstance)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="ReportInstance" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true" HasStream="true">
+        <Property Name="ExecutedDateTime" Type="Edm.DateTimeOffset" Nullable="false" />
+        <Property Name="ExecutedBy" Type="Edm.String" />
+        <Property Name="Parameters" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Representation" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true">
+        <Property Name="EntityId" Type="Edm.String" Nullable="false" />
+        <Property Name="EntityType" Type="Edm.String" Nullable="false" />
+        <Property Name="EntityReadLink" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="File" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true">
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="Purpose" Type="Com.Ingr.Core.V1.FilePurpose" />
+        <Property Name="Description" Type="Edm.String" />
+        <Property Name="IsViewable" Type="Edm.Boolean" />
+        <NavigationProperty Name="Files" Type="Collection(Com.Ingr.Core.V1.File)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.Core.V1.Representation)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="ParametricFilter" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" Abstract="true" OpenType="true">
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="Description" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Document" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true">
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="Description" Type="Edm.String" />
+        <Property Name="Kind" Type="Com.Ingr.Core.V1.DocumentKind" />
+        <Property Name="Version" Type="Edm.String" />
+        <Property Name="Revision" Type="Edm.String" />
+        <NavigationProperty Name="Files" Type="Collection(Com.Ingr.Core.V1.File)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Sheet" BaseType="Com.Ingr.Core.V1.DynamicEdmEntityObject" OpenType="true">
+        <Property Name="Name" Type="Edm.String" Nullable="false" />
+        <Property Name="Description" Type="Edm.String" />
+        <Property Name="Version" Type="Edm.String" />
+        <Property Name="Revision" Type="Edm.String" />
+        <NavigationProperty Name="Document" Type="Com.Ingr.Core.V1.Document" ContainsTarget="true" />
+      </EntityType>
+      <EnumType Name="FilePurpose">
+        <Member Name="Primary" Value="0" />
+        <Member Name="Rendition" Value="1" />
+        <Member Name="Markup" Value="2" />
+        <Member Name="Reference" Value="3" />
+        <Member Name="Other" Value="4" />
+      </EnumType>
+      <EnumType Name="GraphicType">
+        <Member Name="Undefined" Value="0" />
+        <Member Name="Model" Value="1" />
+        <Member Name="Drawing" Value="2" />
+        <Member Name="PointCloud" Value="3" />
+        <Member Name="Pdf" Value="4" />
+      </EnumType>
+      <EnumType Name="DocumentKind">
+        <Member Name="TwoDimensional" Value="0" />
+        <Member Name="ThreeDimensional" Value="1" />
+        <Member Name="LaserScan" Value="2" />
+        <Member Name="Other" Value="3" />
+      </EnumType>
+      <Action Name="RetrieveGdsUri" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.Core.V1.ViewableObject" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.ResourceLocation" />
+      </Action>
+      <Function Name="GetRetrieveGdsUriResultAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.Core.V1.ViewableObject" Nullable="false" />
+        <Parameter Name="resultId" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.ResourceLocation" />
+      </Function>
+      <Action Name="PrepareViewableObject" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.Core.V1.ViewableObject" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.ResourceLocation" />
+      </Action>
+      <Function Name="GetPrepareViewableObjectResultAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.Core.V1.ViewableObject" Nullable="false" />
+        <Parameter Name="resultId" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.ResourceLocation" />
+      </Function>
+      <Action Name="ExecuteReport" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.Core.V1.Report" Nullable="false" />
+        <Parameter Name="parameters" Type="Edm.String" />
+        <ReturnType Type="Com.Ingr.Core.V1.ReportResult" />
+      </Action>
+      <Function Name="GetExecuteReportResultAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.Core.V1.Report" Nullable="false" />
+        <Parameter Name="resultId" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.ReportResult" />
+      </Function>
+      <Action Name="RetrieveFileUri" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.Core.V1.File" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.FileUri" />
+      </Action>
+      <Function Name="GetRetrieveFileUriResultAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.Core.V1.File" Nullable="false" />
+        <Parameter Name="resultId" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.FileUri" />
+      </Function>
+      <Action Name="RetrieveFileUris" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Collection(Com.Ingr.Core.V1.File)" Nullable="false" />
+        <Parameter Name="purposes" Type="Collection(Com.Ingr.Core.V1.FilePurpose)" Nullable="false" />
+        <ReturnType Type="Collection(Com.Ingr.Core.V1.FileUri)" />
+      </Action>
+      <Function Name="GetRetrieveFileUrisResultAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Collection(Com.Ingr.Core.V1.File)" Nullable="false" />
+        <Parameter Name="resultId" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Collection(Com.Ingr.Core.V1.FileUri)" />
+      </Function>
+      <Action Name="Update" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Collection(Com.Ingr.Core.V1.PbsItem)" Nullable="false" />
+        <Parameter Name="Properties" Type="Collection(Com.Ingr.SPID.V2.Property)" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+    </Schema>
+    <Schema Namespace="Com.Ingr.SPID.V2" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EnumType Name="EntityType" UnderlyingType="Edm.Int64">
+        <Member Name="PlantItem" Value="1" />
+        <Member Name="Equipment" Value="2" />
+        <Member Name="DuctRun" Value="3" />
+        <Member Name="SignalRun" Value="4" />
+        <Member Name="PipeRun" Value="5" />
+        <Member Name="Room" Value="6" />
+        <Member Name="OPC" Value="7" />
+        <Member Name="Vessel" Value="8" />
+        <Member Name="Exchanger" Value="9" />
+        <Member Name="DisplaySetInfo" Value="10" />
+        <Member Name="PlantItemGroup" Value="11" />
+        <Member Name="Instrument" Value="12" />
+        <Member Name="DisplaySet" Value="13" />
+        <Member Name="PipingComp" Value="14" />
+        <Member Name="Nozzle" Value="15" />
+        <Member Name="Drawing" Value="16" />
+        <Member Name="EquipmentOther" Value="17" />
+        <Member Name="Mechanical" Value="18" />
+        <Member Name="EquipComponent" Value="19" />
+        <Member Name="InstrLoop" Value="20" />
+        <Member Name="HydraulicCircuit" Value="21" />
+        <Member Name="Package" Value="22" />
+        <Member Name="SafetyClass" Value="23" />
+        <Member Name="System" Value="24" />
+        <Member Name="InlineComp" Value="25" />
+        <Member Name="RoomComponent" Value="26" />
+        <Member Name="DuctingComp" Value="27" />
+        <Member Name="SignalPoint" Value="28" />
+        <Member Name="PipingPoint" Value="29" />
+        <Member Name="Note" Value="30" />
+        <Member Name="Status" Value="31" />
+        <Member Name="History" Value="32" />
+        <Member Name="Source" Value="33" />
+        <Member Name="Representation" Value="34" />
+        <Member Name="Case" Value="35" />
+        <Member Name="Location" Value="36" />
+        <Member Name="InstrFailMode" Value="37" />
+        <Member Name="InstrFunction" Value="38" />
+        <Member Name="InstrOption" Value="39" />
+        <Member Name="Relationship" Value="40" />
+      </EnumType>
+      <EntityType Name="PlantItem" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Equipment" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="DuctRun" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Instruments" Type="Collection(Com.Ingr.SPID.V2.Instrument)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="SignalRun" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Instruments" Type="Collection(Com.Ingr.SPID.V2.Instrument)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="PipeRun" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="PipingComps" Type="Collection(Com.Ingr.SPID.V2.PipingComp)" ContainsTarget="true" />
+        <NavigationProperty Name="Instruments" Type="Collection(Com.Ingr.SPID.V2.Instrument)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Room" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="OPC" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Vessel" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Exchanger" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="DisplaySetInfo" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="PlantItemGroup" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="PlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Instrument" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="InlineComps" Type="Collection(Com.Ingr.SPID.V2.InlineComp)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrFailModes" Type="Collection(Com.Ingr.SPID.V2.InstrFailMode)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrFunctions" Type="Collection(Com.Ingr.SPID.V2.InstrFunction)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrOptions" Type="Collection(Com.Ingr.SPID.V2.InstrOption)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="DisplaySet" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="DisplaySetInfos" Type="Collection(Com.Ingr.SPID.V2.DisplaySetInfo)" ContainsTarget="true" />
+        <NavigationProperty Name="Files" Type="Collection(Com.Ingr.Core.V1.File)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="PipingComp" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Nozzle" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Drawing" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Files" Type="Collection(Com.Ingr.Core.V1.File)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="EquipmentOther" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Mechanical" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="EquipComponent" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="ChildPlantItemPlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="InstrLoop" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="HydraulicCircuit" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Package" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="SafetyClass" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="System" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="InlineComp" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="RoomComponent" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="DuctingComp" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="SignalPoint" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="PipingPoint" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="FromModelItemSources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Note" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Status" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="History" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Source" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Representation" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Case" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Location" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="InstrFailMode" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="InstrFunction" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="InstrOption" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Relationship" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="Site" BaseType="Com.Ingr.Core.V1.PbsItem" OpenType="true">
+        <Property Name="Name" Type="Edm.String" />
+        <NavigationProperty Name="Plants" Type="Collection(Com.Ingr.SPID.V2.Plant)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Plant" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="Name" Type="Edm.String" />
+        <NavigationProperty Name="Projects" Type="Collection(Com.Ingr.SPID.V2.Project)" ContainsTarget="true" />
+        <NavigationProperty Name="Reports" Type="Collection(Com.Ingr.Core.V1.Report)" ContainsTarget="true" />
+        <NavigationProperty Name="SelectLists" Type="Collection(Com.Ingr.Core.V1.SelectList)" ContainsTarget="true" />
+        <NavigationProperty Name="FilterPlantItems" Type="Collection(Com.Ingr.SPID.V2.FilterPlantItem)" ContainsTarget="true" />
+        <NavigationProperty Name="ABESIOData" Type="Com.Ingr.SPID.V2.ABESIOData" Nullable="false" ContainsTarget="true" />
+        <NavigationProperty Name="Filters" Type="Collection(Com.Ingr.SPID.V2.Filter)" ContainsTarget="true" />
+        <NavigationProperty Name="Tasks" Type="Collection(Com.Ingr.SPID.V2.Task)" ContainsTarget="true" />
+        <NavigationProperty Name="ABESettings" Type="Collection(Com.Ingr.SPID.V2.ABESetting)" ContainsTarget="true" />
+        <NavigationProperty Name="SDXSettings" Type="Collection(Com.Ingr.SPID.V2.SDXSetting)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+        <NavigationProperty Name="Equipments" Type="Collection(Com.Ingr.SPID.V2.Equipment)" ContainsTarget="true" />
+        <NavigationProperty Name="DuctRuns" Type="Collection(Com.Ingr.SPID.V2.DuctRun)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalRuns" Type="Collection(Com.Ingr.SPID.V2.SignalRun)" ContainsTarget="true" />
+        <NavigationProperty Name="PipeRuns" Type="Collection(Com.Ingr.SPID.V2.PipeRun)" ContainsTarget="true" />
+        <NavigationProperty Name="Rooms" Type="Collection(Com.Ingr.SPID.V2.Room)" ContainsTarget="true" />
+        <NavigationProperty Name="OPCs" Type="Collection(Com.Ingr.SPID.V2.OPC)" ContainsTarget="true" />
+        <NavigationProperty Name="Vessels" Type="Collection(Com.Ingr.SPID.V2.Vessel)" ContainsTarget="true" />
+        <NavigationProperty Name="Exchangers" Type="Collection(Com.Ingr.SPID.V2.Exchanger)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="Instruments" Type="Collection(Com.Ingr.SPID.V2.Instrument)" ContainsTarget="true" />
+        <NavigationProperty Name="DisplaySets" Type="Collection(Com.Ingr.SPID.V2.DisplaySet)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingComps" Type="Collection(Com.Ingr.SPID.V2.PipingComp)" ContainsTarget="true" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+        <NavigationProperty Name="Drawings" Type="Collection(Com.Ingr.SPID.V2.Drawing)" ContainsTarget="true" />
+        <NavigationProperty Name="EquipmentOthers" Type="Collection(Com.Ingr.SPID.V2.EquipmentOther)" ContainsTarget="true" />
+        <NavigationProperty Name="Mechanicals" Type="Collection(Com.Ingr.SPID.V2.Mechanical)" ContainsTarget="true" />
+        <NavigationProperty Name="EquipComponents" Type="Collection(Com.Ingr.SPID.V2.EquipComponent)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrLoops" Type="Collection(Com.Ingr.SPID.V2.InstrLoop)" ContainsTarget="true" />
+        <NavigationProperty Name="HydraulicCircuits" Type="Collection(Com.Ingr.SPID.V2.HydraulicCircuit)" ContainsTarget="true" />
+        <NavigationProperty Name="Packages" Type="Collection(Com.Ingr.SPID.V2.Package)" ContainsTarget="true" />
+        <NavigationProperty Name="SafetyClasss" Type="Collection(Com.Ingr.SPID.V2.SafetyClass)" ContainsTarget="true" />
+        <NavigationProperty Name="Systems" Type="Collection(Com.Ingr.SPID.V2.System)" ContainsTarget="true" />
+        <NavigationProperty Name="InlineComps" Type="Collection(Com.Ingr.SPID.V2.InlineComp)" ContainsTarget="true" />
+        <NavigationProperty Name="RoomComponents" Type="Collection(Com.Ingr.SPID.V2.RoomComponent)" ContainsTarget="true" />
+        <NavigationProperty Name="DuctingComps" Type="Collection(Com.Ingr.SPID.V2.DuctingComp)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrFailModes" Type="Collection(Com.Ingr.SPID.V2.InstrFailMode)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrFunctions" Type="Collection(Com.Ingr.SPID.V2.InstrFunction)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrOptions" Type="Collection(Com.Ingr.SPID.V2.InstrOption)" ContainsTarget="true" />
+        <NavigationProperty Name="Relationships" Type="Collection(Com.Ingr.SPID.V2.Relationship)" ContainsTarget="true" />
+        <NavigationProperty Name="Files" Type="Collection(Com.Ingr.Core.V1.File)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Project" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="Name" Type="Edm.String" />
+        <NavigationProperty Name="Reports" Type="Collection(Com.Ingr.Core.V1.Report)" ContainsTarget="true" />
+        <NavigationProperty Name="SelectLists" Type="Collection(Com.Ingr.Core.V1.SelectList)" ContainsTarget="true" />
+        <NavigationProperty Name="FilterPlantItems" Type="Collection(Com.Ingr.SPID.V2.FilterPlantItem)" ContainsTarget="true" />
+        <NavigationProperty Name="Filters" Type="Collection(Com.Ingr.SPID.V2.Filter)" ContainsTarget="true" />
+        <NavigationProperty Name="Tasks" Type="Collection(Com.Ingr.SPID.V2.Task)" ContainsTarget="true" />
+        <NavigationProperty Name="ABESettings" Type="Collection(Com.Ingr.SPID.V2.ABESetting)" ContainsTarget="true" />
+        <NavigationProperty Name="SDXSettings" Type="Collection(Com.Ingr.SPID.V2.SDXSetting)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItems" Type="Collection(Com.Ingr.SPID.V2.PlantItem)" ContainsTarget="true" />
+        <NavigationProperty Name="Equipments" Type="Collection(Com.Ingr.SPID.V2.Equipment)" ContainsTarget="true" />
+        <NavigationProperty Name="DuctRuns" Type="Collection(Com.Ingr.SPID.V2.DuctRun)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalRuns" Type="Collection(Com.Ingr.SPID.V2.SignalRun)" ContainsTarget="true" />
+        <NavigationProperty Name="PipeRuns" Type="Collection(Com.Ingr.SPID.V2.PipeRun)" ContainsTarget="true" />
+        <NavigationProperty Name="Rooms" Type="Collection(Com.Ingr.SPID.V2.Room)" ContainsTarget="true" />
+        <NavigationProperty Name="OPCs" Type="Collection(Com.Ingr.SPID.V2.OPC)" ContainsTarget="true" />
+        <NavigationProperty Name="Vessels" Type="Collection(Com.Ingr.SPID.V2.Vessel)" ContainsTarget="true" />
+        <NavigationProperty Name="Exchangers" Type="Collection(Com.Ingr.SPID.V2.Exchanger)" ContainsTarget="true" />
+        <NavigationProperty Name="PlantItemGroups" Type="Collection(Com.Ingr.SPID.V2.PlantItemGroup)" ContainsTarget="true" />
+        <NavigationProperty Name="Instruments" Type="Collection(Com.Ingr.SPID.V2.Instrument)" ContainsTarget="true" />
+        <NavigationProperty Name="DisplaySets" Type="Collection(Com.Ingr.SPID.V2.DisplaySet)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingComps" Type="Collection(Com.Ingr.SPID.V2.PipingComp)" ContainsTarget="true" />
+        <NavigationProperty Name="Nozzles" Type="Collection(Com.Ingr.SPID.V2.Nozzle)" ContainsTarget="true" />
+        <NavigationProperty Name="Drawings" Type="Collection(Com.Ingr.SPID.V2.Drawing)" ContainsTarget="true" />
+        <NavigationProperty Name="EquipmentOthers" Type="Collection(Com.Ingr.SPID.V2.EquipmentOther)" ContainsTarget="true" />
+        <NavigationProperty Name="Mechanicals" Type="Collection(Com.Ingr.SPID.V2.Mechanical)" ContainsTarget="true" />
+        <NavigationProperty Name="EquipComponents" Type="Collection(Com.Ingr.SPID.V2.EquipComponent)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrLoops" Type="Collection(Com.Ingr.SPID.V2.InstrLoop)" ContainsTarget="true" />
+        <NavigationProperty Name="HydraulicCircuits" Type="Collection(Com.Ingr.SPID.V2.HydraulicCircuit)" ContainsTarget="true" />
+        <NavigationProperty Name="Packages" Type="Collection(Com.Ingr.SPID.V2.Package)" ContainsTarget="true" />
+        <NavigationProperty Name="SafetyClasss" Type="Collection(Com.Ingr.SPID.V2.SafetyClass)" ContainsTarget="true" />
+        <NavigationProperty Name="Systems" Type="Collection(Com.Ingr.SPID.V2.System)" ContainsTarget="true" />
+        <NavigationProperty Name="InlineComps" Type="Collection(Com.Ingr.SPID.V2.InlineComp)" ContainsTarget="true" />
+        <NavigationProperty Name="RoomComponents" Type="Collection(Com.Ingr.SPID.V2.RoomComponent)" ContainsTarget="true" />
+        <NavigationProperty Name="DuctingComps" Type="Collection(Com.Ingr.SPID.V2.DuctingComp)" ContainsTarget="true" />
+        <NavigationProperty Name="SignalPoints" Type="Collection(Com.Ingr.SPID.V2.SignalPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="PipingPoints" Type="Collection(Com.Ingr.SPID.V2.PipingPoint)" ContainsTarget="true" />
+        <NavigationProperty Name="Notes" Type="Collection(Com.Ingr.SPID.V2.Note)" ContainsTarget="true" />
+        <NavigationProperty Name="Statuss" Type="Collection(Com.Ingr.SPID.V2.Status)" ContainsTarget="true" />
+        <NavigationProperty Name="Historys" Type="Collection(Com.Ingr.SPID.V2.History)" ContainsTarget="true" />
+        <NavigationProperty Name="Sources" Type="Collection(Com.Ingr.SPID.V2.Source)" ContainsTarget="true" />
+        <NavigationProperty Name="Representations" Type="Collection(Com.Ingr.SPID.V2.Representation)" ContainsTarget="true" />
+        <NavigationProperty Name="Cases" Type="Collection(Com.Ingr.SPID.V2.Case)" ContainsTarget="true" />
+        <NavigationProperty Name="Locations" Type="Collection(Com.Ingr.SPID.V2.Location)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrFailModes" Type="Collection(Com.Ingr.SPID.V2.InstrFailMode)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrFunctions" Type="Collection(Com.Ingr.SPID.V2.InstrFunction)" ContainsTarget="true" />
+        <NavigationProperty Name="InstrOptions" Type="Collection(Com.Ingr.SPID.V2.InstrOption)" ContainsTarget="true" />
+        <NavigationProperty Name="Relationships" Type="Collection(Com.Ingr.SPID.V2.Relationship)" ContainsTarget="true" />
+        <NavigationProperty Name="Files" Type="Collection(Com.Ingr.Core.V1.File)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="ABESIOData" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true" HasStream="true" />
+      <EntityType Name="FilterPlantItem" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true" />
+      <EntityType Name="KeyValuePair" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="Key" Type="Edm.String" />
+        <Property Name="Value" Type="Com.Ingr.Core.V1.DynamicEdmEntityObject" />
+      </EntityType>
+      <EntityType Name="Property" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="Key" Type="Edm.String" />
+        <Property Name="Value" Type="Edm.String" />
+        <NavigationProperty Name="Properties" Type="Collection(Com.Ingr.SPID.V2.KeyValuePair)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="Filter" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <Property Name="Name" Type="Edm.String" />
+        <Property Name="Description" Type="Edm.String" />
+        <NavigationProperty Name="Items" Type="Collection(Com.Ingr.SPID.V2.FilterPlantItem)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="TaskProperty" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <Property Name="PropertyName" Type="Edm.String" />
+        <Property Name="NewValue" Type="Edm.String" />
+        <Property Name="OldValue" Type="Edm.String" />
+        <Property Name="NewNumericValue" Type="Edm.Double" />
+      </EntityType>
+      <EntityType Name="Task" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="SP_ID" Type="Edm.String" />
+        <Property Name="TaskName" Type="Edm.String" />
+        <Property Name="TaskDescription" Type="Edm.String" />
+        <Property Name="DestinationApplication" Type="Edm.Int32" />
+        <Property Name="TaskType" Type="Edm.Int32" />
+        <Property Name="SourceApplication" Type="Edm.String" />
+        <Property Name="SourceDocument" Type="Edm.String" />
+        <Property Name="SourceItemTag" Type="Edm.String" />
+        <Property Name="DestinationItemTag" Type="Edm.String" />
+        <Property Name="ItemType" Type="Edm.String" />
+        <Property Name="CatalogItem" Type="Edm.String" />
+        <Property Name="SourceUID" Type="Edm.String" />
+        <Property Name="CorrelationAction" Type="Edm.Int32" />
+        <NavigationProperty Name="TaskProperties" Type="Collection(Com.Ingr.SPID.V2.TaskProperty)" ContainsTarget="true" />
+      </EntityType>
+      <EntityType Name="ABESetting" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="AbeURL" Type="Edm.String" />
+        <Property Name="AbeWorkspaceName" Type="Edm.String" />
+      </EntityType>
+      <EntityType Name="SDXSetting" BaseType="Com.Ingr.Core.V1.PbsItem" Abstract="true" OpenType="true">
+        <Property Name="SEMPlant" Type="Edm.String" />
+        <Property Name="ToolDescription" Type="Edm.String" />
+        <Property Name="Url" Type="Edm.String" />
+        <Property Name="AuthCodeClientId" Type="Edm.String" />
+        <Property Name="AuthCodeClientSecret" Type="Edm.String" />
+        <Property Name="ToolId" Type="Edm.Int32" />
+        <Property Name="ClientCredentialClientId" Type="Edm.String" />
+        <Property Name="ClientCredentialClientSecret" Type="Edm.String" />
+        <Property Name="UID" Type="Edm.String" />
+        <Property Name="Name" Type="Edm.String" />
+      </EntityType>
+      <ComplexType Name="ItemIdentifier" BaseType="Com.Ingr.Core.V1.DynamicEdmComplexObject" Abstract="true" OpenType="true">
+        <Property Name="ItemType" Type="Edm.String" />
+        <Property Name="Id" Type="Edm.String" />
+      </ComplexType>
+      <Action Name="ExecuteDisplaySet" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Drawing" Nullable="false" />
+        <Parameter Name="DisplaySetID" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="Claim" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Drawing" Nullable="false" />
+        <Parameter Name="Comment" Type="Edm.String" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="ReleaseClaim" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Drawing" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="GenerateSIOXML" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Drawing" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.FileUri" />
+      </Action>
+      <Function Name="GetExecutePDFResultAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Drawing" Nullable="false" />
+        <Parameter Name="resultid" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.FileUri" />
+      </Function>
+      <Function Name="GetGenerateSIOXMLAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Drawing" Nullable="false" />
+        <Parameter Name="resultid" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.FileUri" />
+      </Function>
+      <Action Name="RefreshSite" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Site" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="AddPlant" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Site" Nullable="false" />
+        <Parameter Name="plantName" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="RemovePlant" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Site" Nullable="false" />
+        <Parameter Name="plantName" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="RefreshPlant" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Plant" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="RefreshProjects" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Plant" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="GetMonikerIdentifier" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Plant" Nullable="false" />
+        <Parameter Name="attributeSets" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.SPID.V2.ItemIdentifier" />
+      </Action>
+      <Action Name="GetMonikerItem" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Plant" Nullable="false" />
+        <Parameter Name="attributeSets" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.PbsItem" />
+      </Action>
+      <Action Name="GetMoniker" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Plant" Nullable="false" />
+        <Parameter Name="MonikerIdentifier" Type="Com.Ingr.SPID.V2.ItemIdentifier" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Function Name="GetCommonSchemaFileAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Plant" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.FileUri" />
+      </Function>
+      <Function Name="GetToolSchemaFileAsync" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Plant" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.FileUri" />
+      </Function>
+      <Action Name="FetchDrawing" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Project" Nullable="false" />
+        <Parameter Name="DrawingID" Type="Collection(Edm.String)" Nullable="false" />
+        <Parameter Name="ReadOnly" Type="Edm.String" Nullable="false" />
+        <Parameter Name="FetchOPC" Type="Edm.String" Nullable="false" />
+        <Parameter Name="CreateNewVersion" Type="Edm.String" Nullable="false" />
+        <Parameter Name="Comment" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="CancelProject" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Project" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="GetMonikerIdentifier" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Project" Nullable="false" />
+        <Parameter Name="attributeSets" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.SPID.V2.ItemIdentifier" />
+      </Action>
+      <Action Name="GetMonikerItem" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Project" Nullable="false" />
+        <Parameter Name="attributeSets" Type="Edm.String" Nullable="false" />
+        <ReturnType Type="Com.Ingr.Core.V1.PbsItem" />
+      </Action>
+      <Action Name="GetMoniker" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Project" Nullable="false" />
+        <Parameter Name="MonikerIdentifier" Type="Com.Ingr.SPID.V2.ItemIdentifier" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="ClaimItems" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Project" Nullable="false" />
+        <Parameter Name="DrawingItems" Type="Collection(Edm.String)" Nullable="false" />
+        <Parameter Name="Comment" Type="Edm.String" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Action Name="ReleaseClaimItems" IsBound="true">
+        <Parameter Name="bindingParameter" Type="Com.Ingr.SPID.V2.Project" Nullable="false" />
+        <Parameter Name="DrawingItems" Type="Collection(Edm.String)" Nullable="false" />
+        <ReturnType Type="Edm.String" />
+      </Action>
+      <Function Name="GetMonikerTemplate">
+        <ReturnType Type="Edm.String" />
+      </Function>
+      <EntityContainer Name="Container_Site">
+        <FunctionImport Name="GetMonikerTemplate" Function="Com.Ingr.SPID.V2.GetMonikerTemplate" />
+        <EntitySet Name="Sites" EntityType="Com.Ingr.SPID.V2.Site">
+          <NavigationPropertyBinding Path="Parent" Target="Sites/Plants/SelectLists/Items" />
+          <NavigationPropertyBinding Path="Com.Ingr.Core.V1.SelectList/Descendant" Target="Sites/Plants/SelectLists" />
+          <NavigationPropertyBinding Path="Com.Ingr.Core.V1.SelectList/Parent" Target="Sites/Plants/SelectLists" />
+          <NavigationPropertyBinding Path="Com.Ingr.Core.V1.SelectListItem/ParentList" Target="Sites/Plants/SelectLists" />
+          <NavigationPropertyBinding Path="Com.Ingr.Core.V1.SelectListItem/Descendants" Target="Sites/Plants/SelectLists/Items" />
+        </EntitySet>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
