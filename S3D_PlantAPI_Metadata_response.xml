@@ -7646,19 +7646,6 @@
 				<Property Name="Position" Type="Edm.GeometryPoint"/>
 				<Property Name="Orientation" Type="Com.Ingr.Smart3d.V1.Orientation"/>
 			</ComplexType>
-			<Action Name="ExecuteS3dFilter" IsBound="true">
-				<Parameter Name="bindingParameter" Type="Com.Ingr.Smart3d.V1.S3dFilter" Nullable="false"/>
-				<Parameter Name="objectHierarchies" Type="Collection(CoreVocabulary.ObjectHierarchy)">
-					<Annotation Term="Org.OData.Core.V1.OptionalParameter"/>
-				</Parameter>
-				<Parameter Name="objectTypes" Type="Collection(Edm.String)" Unicode="false">
-					<Annotation Term="Org.OData.Core.V1.OptionalParameter"/>
-				</Parameter>
-				<Parameter Name="queryExpression" Type="Edm.String">
-					<Annotation Term="Org.OData.Core.V1.OptionalParameter"/>
-				</Parameter>
-				<ReturnType Type="Collection(Com.Ingr.Smart3d.V1.S3dItem)"/>
-			</Action>
 			<Function Name="GetS3dFilterByPath" IsBound="true" EntitySetPath="bindingParameter/S3dFilters" IsComposable="true">
 				<Parameter Name="bindingParameter" Type="Com.Ingr.Smart3d.V1.Plant" Nullable="false"/>
 				<Parameter Name="filterPath" Type="Edm.String" Nullable="false"/>
@@ -7703,29 +7690,6 @@
 				<Parameter Name="id" Type="Edm.String" Nullable="false"/>
 				<ReturnType Type="Collection(Com.Ingr.Smart3d.V1.S3dItem)"/>
 			</Function>
-			<Action Name="SetDryWeightAndCenterOfGravity" IsBound="true" EntitySetPath="bindingParameter/Plant/S3dItems">
-				<Parameter Name="bindingParameter" Type="Com.Ingr.Smart3d.V1.S3dItem" Nullable="false"/>
-				<Parameter Name="weight" Type="Edm.Double" Nullable="false"/>
-				<Parameter Name="centerOfGravity" Type="Edm.GeometryPoint" Nullable="false"/>
-				<ReturnType Type="Com.Ingr.Smart3d.V1.S3dItem"/>
-			</Action>
-			<Action Name="SetWetWeightAndCenterOfGravity" IsBound="true" EntitySetPath="bindingParameter/Plant/S3dItems">
-				<Parameter Name="bindingParameter" Type="Com.Ingr.Smart3d.V1.S3dItem" Nullable="false"/>
-				<Parameter Name="weight" Type="Edm.Double" Nullable="false"/>
-				<Parameter Name="centerOfGravity" Type="Edm.GeometryPoint" Nullable="false"/>
-				<ReturnType Type="Com.Ingr.Smart3d.V1.S3dItem"/>
-			</Action>
-			<Action Name="BulkUpdate" IsBound="true" EntitySetPath="bindingParameter/S3dItems">
-				<Parameter Name="bindingParameter" Type="Com.Ingr.Smart3d.V1.Plant" Nullable="false"/>
-				<Parameter Name="properties" Type="CoreVocabulary.DynamicEdmComplexObject" Nullable="false"/>
-				<Parameter Name="ids" Type="Collection(Edm.String)" Nullable="false" Unicode="false"/>
-				<Parameter Name="shouldCommitInErrorState" Type="Edm.Boolean" Nullable="false"/>
-				<ReturnType Type="Collection(Com.Ingr.Smart3d.V1.S3dItem)"/>
-			</Action>
-			<Action Name="SetPositionAndOrientation" IsBound="true">
-				<Parameter Name="bindingParameter" Type="Com.Ingr.Smart3d.V1.Plant" Nullable="false"/>
-				<Parameter Name="positionAndOrientationData" Type="Collection(Com.Ingr.Smart3d.V1.PositionAndOrientation)" Nullable="false"/>
-			</Action>
 			<EntityContainer Name="Container">
 				<EntitySet Name="Sites" EntityType="Com.Ingr.Smart3d.V1.Site">
 					<NavigationPropertyBinding Path="Plants/SelectLists/Descendant" Target="Sites/Plants/SelectLists"/>
@@ -7741,4 +7705,5 @@
 			</EntityContainer>
 		</Schema>
 	</edmx:DataServices>
+
 </edmx:Edmx>
