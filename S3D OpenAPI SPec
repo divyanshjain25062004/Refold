@@ -1,0 +1,159 @@
+openapi: 3.0.3
+info:
+  title: Hexagon S3D Plant API (Full Actions & Functions)
+  [cite_start]description: API for managing Smart3D plant data, including file retrieval and report execution[cite: 536].
+  version: 1.0.0
+servers:
+  - url: https://psegdcsmartadm.devdemo.hexagonppm.com/3DPlantWebApi/s3d/v1/
+
+paths:
+  # --- ACTIONS (POST Operations) ---
+  /ViewableObjects('{id}')/RetrieveGdsUri:
+    post:
+      [cite_start]summary: Retrieve GDS URI for a viewable object [cite: 792]
+      description: Bound to ViewableObject. [cite_start]Returns the resource location[cite: 794, 796].
+      responses:
+        '200':
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceLocation'
+
+  /ViewableObjects('{id}')/PrepareViewableObject:
+    post:
+      [cite_start]summary: Prepare a viewable object for viewing [cite: 806]
+      description: Bound to ViewableObject. [cite_start]Initiates preparation of the object[cite: 808, 811].
+      responses:
+        '200':
+          description: Object preparation initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceLocation'
+
+  /Files('{id}')/RetrieveFileUri:
+    post:
+      [cite_start]summary: Retrieve the URI for a specific file [cite: 820]
+      description: Bound to File entity. [cite_start]Returns the file location URI[cite: 821, 823].
+      responses:
+        '200':
+          description: File URI retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUri'
+
+  /Files/RetrieveFileUris:
+    post:
+      [cite_start]summary: Retrieve multiple file URIs based on purpose [cite: 833]
+      [cite_start]description: Bound to a collection of Files[cite: 834].
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                purposes:
+                  type: array
+                  items:
+                    [cite_start]$ref: '#/components/schemas/FilePurpose' [cite: 835, 836]
+      responses:
+        '200':
+          description: Collection of file URIs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  [cite_start]$ref: '#/components/schemas/FileUri' [cite: 839]
+
+  /Reports('{id}')/ExecuteReport:
+    post:
+      [cite_start]summary: Execute a specific report [cite: 848]
+      description: Bound to Report entity. [cite_start]Allows optional parameters[cite: 849, 854].
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parameters:
+                  [cite_start]type: string [cite: 851]
+      responses:
+        '200':
+          description: Report result metadata
+          content:
+            application/json:
+              schema:
+                [cite_start]$ref: '#/components/schemas/ReportResult' [cite: 856]
+
+  # --- FUNCTIONS (GET Operations) ---
+  /ViewableObjects('{id}')/GetRetrieveGdsUriResultAsync(resultId='{resultId}'):
+    get:
+      [cite_start]summary: Get asynchronous GDS URI result [cite: 798]
+      parameters:
+        - name: resultId
+          in: path
+          required: true
+          schema:
+            [cite_start]type: string [cite: 803]
+      responses:
+        '200':
+          description: Async operation result
+          content:
+            application/json:
+              schema:
+                [cite_start]$ref: '#/components/schemas/ResourceLocation' [cite: 804]
+
+  /Files('{id}')/GetRetrieveFileUriResultAsync(resultId='{resultId}'):
+    get:
+      [cite_start]summary: Get asynchronous file URI result [cite: 825]
+      parameters:
+        - name: resultId
+          in: path
+          required: true
+          schema:
+            [cite_start]type: string [cite: 828]
+      responses:
+        '200':
+          description: Async file URI
+          content:
+            application/json:
+              schema:
+                [cite_start]$ref: '#/components/schemas/FileUri' [cite: 830]
+
+components:
+  schemas:
+    ResourceLocation:
+      type: object
+      properties:
+        BaseUri:
+          [cite_start]type: string [cite: 611]
+        ResourceUri:
+          [cite_start]type: string [cite: 614]
+
+    FileUri:
+      type: object
+      properties:
+        Id:
+          [cite_start]type: string [cite: 654]
+        FileId:
+          [cite_start]type: string [cite: 656]
+        Purpose:
+          [cite_start]$ref: '#/components/schemas/FilePurpose' [cite: 659]
+        Uri:
+          [cite_start]type: string [cite: 661]
+
+    ReportResult:
+      type: object
+      properties:
+        Id:
+          [cite_start]type: string [cite: 740]
+        url:
+          [cite_start]type: string [cite: 742]
+
+    FilePurpose:
+      type: integer
+      enum: [0, 1, 2, 3, 4]
+      [cite_start]description: 0=Primary, 1=Rendition, 2=Markup, 3=Reference, 4=Other [cite: 578, 579, 580, 581, 582, 583]
