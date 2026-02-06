@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: Zincwork Partner API
+  description: |
+    APIs to initiate and track Background Verification (BGV) checks using Zincwork Partner APIs.
+    Authentication is via API Key (Bearer token).
+  version: "2.0.0"
+servers:
+  - url: https://api.zincwork.com
+    description: Production
+  - url: https://stagingapi.zincwork.com
+    description: Staging
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API_KEY
+
+  schemas:
+    Package:
+      type: object
+      properties:
+        id:
+          type: string
+          example: pkg_123
+        name:
+          type: string
+          example: India Employment + Criminal
+
+    CreateCheckRequest:
+      type: object
+      required:
+        - candidate
+        - packageIds
+        - resultsCallbackURL
+      properties:
+        candidate:
+          type: object
+          required:
+            - firstName
+            - lastName
+            - email
+          properties:
+            firstName:
+              type: string
+            lastName:
+              type: string
+            email:
+              type: string
+        packageIds:
+          type: array
+          items:
+            type: string
+          example: ["pkg_123"]
+        resultsCallbackURL:
+          type: string
+          format: uri
+          example: https://scrut.io/webhooks/zincwork
+
+    CreateCheckResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: req_456
+        status:
+          type: string
+          example: pending
+
+    WebhookPayload:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Background check request ID
+        status:
+          type: string
+          example: completed
+        result:
+          type: string
+          enum: [clear, consider]
+        reportUrl:
+          type: string
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+              checkType:
+                type: string
+
+paths:
+  /partner/v2/packages:
+    get:
+      summary: Get Packages
+      description: Fetch all BGV packages configured in Zincwork.
+      responses:
+        "200":
+          description: List of packages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Package"
+
+  /partner/v2/checks:
+    post:
+      summary: Create Background Check
+      description: |
+        Starts a background verification check using pre-configured Zincwork packages.
+        This operation is NOT idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckRequest"
+      responses:
+        "201":
+          description: Background check created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCheckResponse"
+
+  /partner/v2/results:
+    get:
+      summary: Get Check Results
+      description: Fetch current status and result of a background check.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Background check request ID
+      responses:
+        "200":
+          description: Check status and result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookPayload"
+
+  /partner/v2/report:
+    get:
+      summary: Get BGV Report PDF
+      description: Returns Base64 encoded PDF report for a completed check.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Background check request ID
+      responses:
+        "200":
+          description: Base64 encoded PDF
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    type: string
+                    description: Base64 encoded PDF
+
+  /partner/v2/request/reviewed:
+    post:
+      summary: Mark Request as Reviewed
+      description: Marks a background check request as reviewed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  example: req_456
+      responses:
+        "200":
+          description: Request marked as reviewed
