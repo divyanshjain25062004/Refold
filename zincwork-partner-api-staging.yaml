@@ -1,0 +1,194 @@
+openapi: 3.0.3
+info:
+  title: Zincwork Partner API (Staging)
+  description: |
+    Partner API for initiating and tracking Background Verification (BGV) checks
+    using Zincwork staging environment.
+    Authentication uses an API Key (Bearer token) that works only with staging.
+  version: "2.0.0-staging"
+
+servers:
+  - url: https://stagingapi.zincwork.com
+    description: Zincwork Staging API
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API_KEY
+
+  schemas:
+    Package:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 7db0570f7dd84c3c8b6aa134752e29eb
+        name:
+          type: string
+          example: Default Reference Package
+
+    Candidate:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+      properties:
+        firstName:
+          type: string
+          example: Rahul
+        lastName:
+          type: string
+          example: Sharma
+        email:
+          type: string
+          example: rahul.sharma@testcompany.com
+        phoneNumber:
+          type: string
+          example: +919876543210
+
+    CreateCheckRequest:
+      type: object
+      required:
+        - package
+        - candidate
+        - resultsCallbackURL
+      properties:
+        package:
+          type: string
+          description: Package ID returned from GET /partner/v2/packages
+          example: 7db0570f7dd84c3c8b6aa134752e29eb
+        candidate:
+          $ref: "#/components/schemas/Candidate"
+        resultsCallbackURL:
+          type: string
+          format: uri
+          example: https://example.com/webhooks/zincwork
+
+    CreateCheckResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 51f41c8cd3834791857610b7a4382118
+        statusCode:
+          type: integer
+          example: 600
+
+    WebhookPayload:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        result:
+          type: string
+          enum: [clear, consider]
+        reportUrl:
+          type: string
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+              checkType:
+                type: string
+
+paths:
+  /partner/v2/packages:
+    get:
+      summary: Get Packages (Staging)
+      responses:
+        "200":
+          description: List of packages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Package"
+
+  /partner/v2/checks:
+    post:
+      summary: Create Background Check (Staging)
+      description: |
+        Creates a background verification check using a single Zincwork package.
+        This operation is not idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckRequest"
+      responses:
+        "200":
+          description: Background check created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCheckResponse"
+
+  /partner/v2/results:
+    get:
+      summary: Get Check Results
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Check status and results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookPayload"
+
+  /partner/v2/report:
+    get:
+      summary: Get Report PDF
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Base64 encoded PDF
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    type: string
+
+  /partner/v2/request/reviewed:
+    post:
+      summary: Mark Request as Reviewed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+      responses:
+        "200":
+          description: Request marked as reviewed
