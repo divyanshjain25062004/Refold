@@ -7,7 +7,7 @@ info:
     
     ## Authentication
     All requests require Bearer token authentication using your API key.
-    Include the API key in the Authorization header as: `Authorization: Bearer YOUR_API_KEY`
+    Include your API key in the Authorization header as: `Authorization: Bearer YOUR_API_KEY`
     
     ## Base URL
     - Staging: https://stagingapi.zincwork.com
@@ -31,8 +31,9 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
-      description: Enter your API key as the bearer token
+      description: |
+        Bearer token authentication using your API key.
+        The token will be sent in the Authorization header as: Bearer <your-api-key>
 
   schemas:
     Error:
