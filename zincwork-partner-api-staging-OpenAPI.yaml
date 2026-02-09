@@ -1,13 +1,27 @@
 openapi: 3.0.3
 info:
-  title: Zincwork Partner API (Staging – Full)
-  version: "2.0.0-staging"
+  title: Zincwork Partner API
+  version: 2.0.0
   description: |
-    Full OpenAPI specification for Zincwork Partner API based on official documentation
-    (https://docs.zincwork.com) and observed staging behavior.
+    Zincwork Partner API for background check management.
+    
+    ## Authentication
+    All requests require Bearer token authentication using your API key.
+    Include the API key in the Authorization header as: `Authorization: Bearer YOUR_API_KEY`
+    
+    ## Base URL
+    - Staging: https://stagingapi.zincwork.com
+    - Production: https://api.zincwork.com
+  contact:
+    name: Zincwork Support
+    url: https://zincwork.com
+    email: support@zincwork.com
 
 servers:
   - url: https://stagingapi.zincwork.com
+    description: Staging environment
+  - url: https://api.zincwork.com
+    description: Production environment
 
 security:
   - BearerAuth: []
@@ -17,62 +31,546 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: API_KEY
+      bearerFormat: JWT
+      description: Enter your API key as the bearer token
 
   schemas:
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Error message
+          example: "ValidationError"
+        error:
+          type: string
+          description: Detailed error description
+          example: "Validation error. Check the request body and query/url params."
+        code:
+          type: string
+          description: Error code
+          example: "VALIDATION_ERROR"
+
     Candidate:
       type: object
+      required:
+        - firstName
+        - lastName
+        - email
       properties:
         id:
           type: string
+          description: Unique identifier for the candidate
+          example: "cand_123456"
         firstName:
           type: string
+          description: Candidate's first name
+          example: "John"
+          minLength: 1
+          maxLength: 100
         lastName:
           type: string
+          description: Candidate's last name
+          example: "Doe"
+          minLength: 1
+          maxLength: 100
         email:
           type: string
+          format: email
+          description: Candidate's email address
+          example: "john.doe@example.com"
         phoneNumber:
           type: string
+          description: Candidate's phone number
+          example: "+1234567890"
+          pattern: '^\+?[1-9]\d{1,14}$'
+        dateOfBirth:
+          type: string
+          format: date
+          description: Candidate's date of birth (YYYY-MM-DD)
+          example: "1990-01-15"
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+              example: "123 Main St"
+            city:
+              type: string
+              example: "San Francisco"
+            state:
+              type: string
+              example: "CA"
+            zipCode:
+              type: string
+              example: "94102"
+            country:
+              type: string
+              example: "US"
 
     Package:
       type: object
+      required:
+        - id
+        - name
       properties:
         id:
           type: string
+          description: Unique package identifier
+          example: "pkg_basic_check"
         name:
           type: string
+          description: Package name
+          example: "Basic Background Check"
+        description:
+          type: string
+          description: Package description
+          example: "Includes criminal record check and identity verification"
+        components:
+          type: array
+          description: List of check components included in the package
+          items:
+            type: string
+            example: "criminal_record"
+        turnaroundTime:
+          type: string
+          description: Expected completion time
+          example: "2-3 business days"
+        price:
+          type: object
+          properties:
+            amount:
+              type: number
+              format: float
+              example: 29.99
+            currency:
+              type: string
+              example: "USD"
 
     CreateCheckRequest:
       type: object
-      required: [package, candidate, resultsCallbackURL]
+      required:
+        - package
+        - candidate
+        - resultsCallbackURL
       properties:
         package:
           type: string
+          description: Package ID to use for the background check
+          example: "pkg_basic_check"
         candidate:
           $ref: "#/components/schemas/Candidate"
         resultsCallbackURL:
           type: string
           format: uri
+          description: Webhook URL to receive results when check is complete
+          example: "https://yourapp.com/webhooks/zincwork"
         external_id:
           type: string
+          description: Your internal reference ID for this check
+          example: "internal_ref_12345"
+          maxLength: 255
+        metadata:
+          type: object
+          description: Additional metadata to associate with this check
+          additionalProperties:
+            type: string
+          example:
+            department: "Engineering"
+            position: "Senior Developer"
+
+    Check:
+      type: object
+      required:
+        - id
+        - status
+        - package
+        - candidate
+      properties:
+        id:
+          type: string
+          description: Unique check identifier
+          example: "chk_789012"
+        status:
+          type: string
+          enum:
+            - pending
+            - in_progress
+            - completed
+            - suspended
+            - cancelled
+          description: Current status of the background check
+          example: "in_progress"
+        package:
+          $ref: "#/components/schemas/Package"
+        candidate:
+          $ref: "#/components/schemas/Candidate"
+        resultsCallbackURL:
+          type: string
+          format: uri
+          example: "https://yourapp.com/webhooks/zincwork"
+        external_id:
+          type: string
+          example: "internal_ref_12345"
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when check was created
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last update
+          example: "2024-01-15T14:30:00Z"
+        completedAt:
+          type: string
+          format: date-time
+          description: Timestamp when check was completed
+          example: "2024-01-17T09:00:00Z"
+        result:
+          type: string
+          enum:
+            - clear
+            - consider
+            - suspended
+          description: Final result of the background check
+          example: "clear"
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+
+    ChecksList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Check"
+        pagination:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 100
+            page:
+              type: integer
+              example: 1
+            pageSize:
+              type: integer
+              example: 20
+            totalPages:
+              type: integer
+              example: 5
+
+    PackagesList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Package"
 
 paths:
   /partner/v2/packages:
     get:
-      summary: List packages
+      summary: List available packages
+      description: Retrieve a list of all available background check packages
+      operationId: listPackages
+      tags:
+        - Packages
       responses:
         "200":
-          description: OK
+          description: Successfully retrieved packages list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackagesList"
+              examples:
+                success:
+                  value:
+                    data:
+                      - id: "pkg_basic_check"
+                        name: "Basic Background Check"
+                        description: "Criminal record check and identity verification"
+                        components:
+                          - "criminal_record"
+                          - "identity_verification"
+                        turnaroundTime: "2-3 business days"
+                        price:
+                          amount: 29.99
+                          currency: "USD"
+        "401":
+          description: Unauthorized - Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                unauthorized:
+                  value:
+                    message: "Unauthorized"
+                    error: "Invalid or missing authentication token"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /partner/v2/checks:
+    get:
+      summary: List background checks
+      description: Retrieve a list of background checks with optional filtering
+      operationId: listChecks
+      tags:
+        - Checks
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by check status
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - in_progress
+              - completed
+              - suspended
+              - cancelled
+        - name: external_id
+          in: query
+          description: Filter by external ID
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successfully retrieved checks list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChecksList"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
     post:
-      summary: Create check
+      summary: Create a new background check
+      description: Initiate a new background check for a candidate
+      operationId: createCheck
+      tags:
+        - Checks
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateCheckRequest"
+            examples:
+              basic:
+                summary: Basic check request
+                value:
+                  package: "pkg_basic_check"
+                  candidate:
+                    firstName: "John"
+                    lastName: "Doe"
+                    email: "john.doe@example.com"
+                    phoneNumber: "+1234567890"
+                  resultsCallbackURL: "https://yourapp.com/webhooks/zincwork"
+                  external_id: "internal_ref_12345"
+              detailed:
+                summary: Detailed check request with address
+                value:
+                  package: "pkg_comprehensive_check"
+                  candidate:
+                    firstName: "Jane"
+                    lastName: "Smith"
+                    email: "jane.smith@example.com"
+                    phoneNumber: "+1987654321"
+                    dateOfBirth: "1990-01-15"
+                    address:
+                      street: "123 Main St"
+                      city: "San Francisco"
+                      state: "CA"
+                      zipCode: "94102"
+                      country: "US"
+                  resultsCallbackURL: "https://yourapp.com/webhooks/zincwork"
+                  external_id: "internal_ref_67890"
+                  metadata:
+                    department: "Engineering"
+                    position: "Senior Developer"
       responses:
         "200":
-          description: Created
+          description: Check created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Check"
+              examples:
+                success:
+                  value:
+                    id: "chk_789012"
+                    status: "pending"
+                    package:
+                      id: "pkg_basic_check"
+                      name: "Basic Background Check"
+                    candidate:
+                      id: "cand_123456"
+                      firstName: "John"
+                      lastName: "Doe"
+                      email: "john.doe@example.com"
+                      phoneNumber: "+1234567890"
+                    resultsCallbackURL: "https://yourapp.com/webhooks/zincwork"
+                    external_id: "internal_ref_12345"
+                    createdAt: "2024-01-15T10:30:00Z"
+                    updatedAt: "2024-01-15T10:30:00Z"
+        "400":
+          description: Bad request - Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                validationError:
+                  value:
+                    message: "ValidationError"
+                    error: "Validation error. Check the request body and query/url params."
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /partner/v2/checks/{checkId}:
+    get:
+      summary: Get check details
+      description: Retrieve detailed information about a specific background check
+      operationId: getCheck
+      tags:
+        - Checks
+      parameters:
+        - name: checkId
+          in: path
+          description: Unique identifier of the check
+          required: true
+          schema:
+            type: string
+            example: "chk_789012"
+      responses:
+        "200":
+          description: Successfully retrieved check details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Check"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Check not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                notFound:
+                  value:
+                    message: "Not Found"
+                    error: "Check with the specified ID does not exist"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Cancel a background check
+      description: Cancel a pending or in-progress background check
+      operationId: cancelCheck
+      tags:
+        - Checks
+      parameters:
+        - name: checkId
+          in: path
+          description: Unique identifier of the check to cancel
+          required: true
+          schema:
+            type: string
+            example: "chk_789012"
+      responses:
+        "200":
+          description: Check cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Check"
+        "400":
+          description: Bad request - Check cannot be cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Check not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+tags:
+  - name: Packages
+    description: Background check package management
+  - name: Checks
+    description: Background check operations
