@@ -1,0 +1,2971 @@
+openapi: 3.0.3
+info:
+  title: Smartsheet API
+  version: 2.0.0
+  description: |
+    Welcome to the OpenAPI reference documentation for the Smartsheet API!
+    
+    **Important:**
+    * The Smartsheet API is restricted to users on Business and Enterprise plans
+    * The Developer Agreement governs the use of the Smartsheet API and Smartsheet software development kits (SDKs)
+    
+    **Base URL:** https://api.smartsheet.com/2.0/
+    
+    **Getting started:** Generate an API access token and make a request.
+  contact:
+    url: https://help.smartsheet.com/contact
+  termsOfService: https://www.smartsheet.com/legal/developer-program-agreement
+
+servers:
+  - url: https://api.smartsheet.com/2.0
+    description: US Production Server
+  - url: https://api.smartsheet.eu/2.0
+    description: EU Production Server
+  - url: https://api.smartsheet.au/2.0
+    description: AU Production Server
+
+security:
+  - bearerAuth: []
+  - oauth2: []
+
+tags:
+  - name: Alternate Email Addresses
+    description: Operations for managing alternate email addresses for users
+  - name: Attachments
+    description: Operations for managing file attachments
+  - name: Automation Rules
+    description: Operations for managing automation rules
+  - name: Cell Images
+    description: Operations for managing cell images
+  - name: Cells
+    description: Operations for working with cells
+  - name: Columns
+    description: Operations for managing columns
+  - name: Comments
+    description: Operations for managing comments
+  - name: Contacts
+    description: Operations for managing contacts
+  - name: Cross-sheet References
+    description: Operations for managing cross-sheet references
+  - name: Dashboards
+    description: Operations for managing dashboards (Sights)
+  - name: Discussions
+    description: Operations for managing discussions
+  - name: Events
+    description: Operations for retrieving events (Event Reporting)
+  - name: Favorites
+    description: Operations for managing favorites
+  - name: Folders
+    description: Operations for managing folders
+  - name: Groups
+    description: Operations for managing groups
+  - name: Group Members
+    description: Operations for managing group members
+  - name: Home
+    description: Operations for accessing home items
+  - name: Imports
+    description: Operations for importing data
+  - name: Proofs
+    description: Operations for managing proofs
+  - name: Reports
+    description: Operations for managing reports
+  - name: Rows
+    description: Operations for managing rows
+  - name: Search
+    description: Operations for searching
+  - name: Sharing
+    description: Operations for managing sharing
+  - name: Sheet Summary
+    description: Operations for managing sheet summaries
+  - name: Sheets
+    description: Operations for managing sheets
+  - name: Templates
+    description: Operations for working with templates
+  - name: Tokens
+    description: Operations for managing OAuth tokens
+  - name: Update Requests
+    description: Operations for managing update requests
+  - name: Users
+    description: Operations for managing users
+  - name: Webhooks
+    description: Operations for managing webhooks
+  - name: Workspaces
+    description: Operations for managing workspaces
+  - name: Server Info
+    description: Operations for retrieving server information
+
+paths:
+  # Alternate Email Addresses
+  /users/{userId}/alternateemails:
+    get:
+      tags:
+        - Alternate Email Addresses
+      summary: List alternate emails
+      description: Gets a list of the alternate emails for the specified user.
+      operationId: listAlternateEmails
+      parameters:
+        - $ref: '#/components/parameters/userIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    post:
+      tags:
+        - Alternate Email Addresses
+      summary: Add alternate emails
+      description: Adds one or more alternate email addresses for the specified user. System Admin only.
+      operationId: addAlternateEmail
+      parameters:
+        - $ref: '#/components/parameters/userIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/AlternateEmail'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/AlternateEmail'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /users/{userId}/alternateemails/{alternateEmailId}:
+    get:
+      tags:
+        - Alternate Email Addresses
+      summary: Get alternate email
+      description: Gets the specified alternate email.
+      operationId: getAlternateEmail
+      parameters:
+        - $ref: '#/components/parameters/userIdPath'
+        - $ref: '#/components/parameters/alternateEmailIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlternateEmail'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Alternate Email Addresses
+      summary: Delete alternate email
+      description: Deletes the specified alternate email address for the specified user.
+      operationId: deleteAlternateEmail
+      parameters:
+        - $ref: '#/components/parameters/userIdPath'
+        - $ref: '#/components/parameters/alternateEmailIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /users/{userId}/alternateemails/{alternateEmailId}/makeprimary:
+    post:
+      tags:
+        - Alternate Email Addresses
+      summary: Make alternate email primary
+      description: Makes the specified alternate email address become the primary email address for the specified user. System Admin only.
+      operationId: promoteAlternateEmail
+      parameters:
+        - $ref: '#/components/parameters/userIdPath'
+        - $ref: '#/components/parameters/alternateEmailIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        '403':
+          description: Forbidden - feature not activated
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Sheets
+  /sheets:
+    get:
+      tags:
+        - Sheets
+      summary: List sheets
+      description: Gets a list of all sheets that the user has access to.
+      operationId: listSheets
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of elements to include (ownerInfo, source)
+        - name: includeAll
+          in: query
+          schema:
+            type: boolean
+          description: If true, includes all sheets including deleted
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /sheets/{sheetId}:
+    get:
+      tags:
+        - Sheets
+      summary: Get sheet
+      description: Gets the specified sheet.
+      operationId: getSheet
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of elements to include
+        - name: level
+          in: query
+          schema:
+            type: integer
+          description: Compatibility level (1, 2, 3)
+        - name: rowIds
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of row IDs
+        - name: rowNumbers
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of row numbers
+        - name: columnIds
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of column IDs
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+          description: Number of rows per page
+        - name: page
+          in: query
+          schema:
+            type: integer
+          description: Page number to return
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sheet'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Sheets
+      summary: Update sheet
+      description: Updates the specified sheet.
+      operationId: updateSheet
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sheet'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Sheets
+      summary: Delete sheet
+      description: Deletes the specified sheet.
+      operationId: deleteSheet
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Rows
+  /sheets/{sheetId}/rows:
+    post:
+      tags:
+        - Rows
+      summary: Add rows
+      description: Adds one or more rows to the specified sheet.
+      operationId: addRows
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Row'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Rows
+      summary: Update rows
+      description: Updates one or more rows in the specified sheet.
+      operationId: updateRows
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Row'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Rows
+      summary: Delete rows
+      description: Deletes one or more rows from the specified sheet.
+      operationId: deleteRows
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: ids
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated list of row IDs to delete
+        - name: ignoreRowsNotFound
+          in: query
+          schema:
+            type: boolean
+          description: If true, ignores rows that are not found
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /sheets/{sheetId}/rows/{rowId}:
+    get:
+      tags:
+        - Rows
+      summary: Get row
+      description: Gets the specified row from a sheet.
+      operationId: getRow
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/rowIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of elements to include
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Row'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Columns
+  /sheets/{sheetId}/columns:
+    get:
+      tags:
+        - Columns
+      summary: List columns
+      description: Gets a list of all columns belonging to the specified sheet.
+      operationId: listColumns
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: level
+          in: query
+          schema:
+            type: integer
+          description: Compatibility level
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of elements to include
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    post:
+      tags:
+        - Columns
+      summary: Add columns
+      description: Adds one or more columns to the specified sheet.
+      operationId: addColumns
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Column'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /sheets/{sheetId}/columns/{columnId}:
+    get:
+      tags:
+        - Columns
+      summary: Get column
+      description: Gets the specified column.
+      operationId: getColumn
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/columnIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Column'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Columns
+      summary: Update column
+      description: Updates properties of the specified column.
+      operationId: updateColumn
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/columnIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Column'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Columns
+      summary: Delete column
+      description: Deletes the specified column.
+      operationId: deleteColumn
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/columnIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Attachments
+  /sheets/{sheetId}/attachments:
+    get:
+      tags:
+        - Attachments
+      summary: List attachments
+      description: Gets a list of all attachments on the specified sheet.
+      operationId: listAttachments
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    post:
+      tags:
+        - Attachments
+      summary: Attach file to sheet
+      description: Attaches a file to the specified sheet.
+      operationId: attachFileToSheet
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: Content-Disposition
+          in: header
+          required: true
+          schema:
+            type: string
+          description: attachment; filename="filename.ext"
+        - name: Content-Type
+          in: header
+          required: true
+          schema:
+            type: string
+          description: MIME type of the file
+        - name: Content-Length
+          in: header
+          required: true
+          schema:
+            type: integer
+          description: Size of the file in bytes
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /sheets/{sheetId}/attachments/{attachmentId}:
+    get:
+      tags:
+        - Attachments
+      summary: Get attachment
+      description: Gets the specified attachment.
+      operationId: getAttachment
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/attachmentIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Attachments
+      summary: Delete attachment
+      description: Deletes the specified attachment.
+      operationId: deleteAttachment
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/attachmentIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Discussions
+  /sheets/{sheetId}/discussions:
+    get:
+      tags:
+        - Discussions
+      summary: List discussions
+      description: Gets a list of all discussions on the specified sheet.
+      operationId: listDiscussions
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: comments, attachments
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    post:
+      tags:
+        - Discussions
+      summary: Create discussion
+      description: Creates a new discussion on the specified sheet.
+      operationId: createDiscussion
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Discussion'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /sheets/{sheetId}/discussions/{discussionId}:
+    get:
+      tags:
+        - Discussions
+      summary: Get discussion
+      description: Gets the specified discussion.
+      operationId: getDiscussion
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/discussionIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Discussion'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Discussions
+      summary: Delete discussion
+      description: Deletes the specified discussion.
+      operationId: deleteDiscussion
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/discussionIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Comments
+  /sheets/{sheetId}/discussions/{discussionId}/comments:
+    post:
+      tags:
+        - Comments
+      summary: Add comment
+      description: Adds a comment to the specified discussion.
+      operationId: addComment
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/discussionIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /sheets/{sheetId}/comments/{commentId}:
+    get:
+      tags:
+        - Comments
+      summary: Get comment
+      description: Gets the specified comment.
+      operationId: getComment
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/commentIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Comments
+      summary: Update comment
+      description: Updates the specified comment.
+      operationId: updateComment
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/commentIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Comments
+      summary: Delete comment
+      description: Deletes the specified comment.
+      operationId: deleteComment
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/commentIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Users
+  /users:
+    get:
+      tags:
+        - Users
+      summary: List users
+      description: Gets a list of all users in the organization.
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: email
+          in: query
+          schema:
+            type: string
+          description: Filter by email address
+        - name: includeAll
+          in: query
+          schema:
+            type: boolean
+          description: Include all users including deleted
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    post:
+      tags:
+        - Users
+      summary: Add user
+      description: Adds a user to the organization.
+      operationId: addUser
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: sendEmail
+          in: query
+          schema:
+            type: boolean
+          description: Send welcome email to user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user
+      description: Gets the current user.
+      operationId: getCurrentUser
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user
+      description: Gets the specified user.
+      operationId: getUser
+      parameters:
+        - $ref: '#/components/parameters/userIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Updates the specified user.
+      operationId: updateUser
+      parameters:
+        - $ref: '#/components/parameters/userIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Removes the specified user from the organization.
+      operationId: deleteUser
+      parameters:
+        - $ref: '#/components/parameters/userIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: transferTo
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: User ID to transfer ownership to
+        - name: transferSheets
+          in: query
+          schema:
+            type: boolean
+          description: Transfer owned sheets
+        - name: removeFromSharing
+          in: query
+          schema:
+            type: boolean
+          description: Remove user from sharing
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Workspaces
+  /workspaces:
+    get:
+      tags:
+        - Workspaces
+      summary: List workspaces
+      description: Gets a list of all workspaces.
+      operationId: listWorkspaces
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: includeAll
+          in: query
+          schema:
+            type: boolean
+          description: Include all workspaces
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    post:
+      tags:
+        - Workspaces
+      summary: Create workspace
+      description: Creates a new workspace.
+      operationId: createWorkspace
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workspace'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /workspaces/{workspaceId}:
+    get:
+      tags:
+        - Workspaces
+      summary: Get workspace
+      description: Gets the specified workspace.
+      operationId: getWorkspace
+      parameters:
+        - $ref: '#/components/parameters/workspaceIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of elements to include
+        - name: loadAll
+          in: query
+          schema:
+            type: boolean
+          description: Load all workspace contents
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Workspaces
+      summary: Update workspace
+      description: Updates the specified workspace.
+      operationId: updateWorkspace
+      parameters:
+        - $ref: '#/components/parameters/workspaceIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workspace'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Workspaces
+      summary: Delete workspace
+      description: Deletes the specified workspace.
+      operationId: deleteWorkspace
+      parameters:
+        - $ref: '#/components/parameters/workspaceIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Folders
+  /folders/{folderId}:
+    get:
+      tags:
+        - Folders
+      summary: Get folder
+      description: Gets the specified folder.
+      operationId: getFolder
+      parameters:
+        - $ref: '#/components/parameters/folderIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of elements to include
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Folder'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Folders
+      summary: Update folder
+      description: Updates the specified folder.
+      operationId: updateFolder
+      parameters:
+        - $ref: '#/components/parameters/folderIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Folder'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Folders
+      summary: Delete folder
+      description: Deletes the specified folder.
+      operationId: deleteFolder
+      parameters:
+        - $ref: '#/components/parameters/folderIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Reports
+  /reports:
+    get:
+      tags:
+        - Reports
+      summary: List reports
+      description: Gets a list of all reports.
+      operationId: listReports
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /reports/{reportId}:
+    get:
+      tags:
+        - Reports
+      summary: Get report
+      description: Gets the specified report.
+      operationId: getReport
+      parameters:
+        - $ref: '#/components/parameters/reportIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of elements to include
+        - name: level
+          in: query
+          schema:
+            type: integer
+          description: Compatibility level
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Dashboards (Sights)
+  /sights:
+    get:
+      tags:
+        - Dashboards
+      summary: List dashboards
+      description: Gets a list of all dashboards (Sights).
+      operationId: listSights
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /sights/{sightId}:
+    get:
+      tags:
+        - Dashboards
+      summary: Get dashboard
+      description: Gets the specified dashboard (Sight).
+      operationId: getSight
+      parameters:
+        - $ref: '#/components/parameters/sightIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: level
+          in: query
+          schema:
+            type: integer
+          description: Compatibility level
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sight'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Dashboards
+      summary: Update dashboard
+      description: Updates the specified dashboard (Sight).
+      operationId: updateSight
+      parameters:
+        - $ref: '#/components/parameters/sightIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sight'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Dashboards
+      summary: Delete dashboard
+      description: Deletes the specified dashboard (Sight).
+      operationId: deleteSight
+      parameters:
+        - $ref: '#/components/parameters/sightIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Webhooks
+  /webhooks:
+    get:
+      tags:
+        - Webhooks
+      summary: List webhooks
+      description: Gets a list of all webhooks.
+      operationId: listWebhooks
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    post:
+      tags:
+        - Webhooks
+      summary: Create webhook
+      description: Creates a new webhook.
+      operationId: createWebhook
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Webhook'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /webhooks/{webhookId}:
+    get:
+      tags:
+        - Webhooks
+      summary: Get webhook
+      description: Gets the specified webhook.
+      operationId: getWebhook
+      parameters:
+        - $ref: '#/components/parameters/webhookIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Webhooks
+      summary: Update webhook
+      description: Updates the specified webhook.
+      operationId: updateWebhook
+      parameters:
+        - $ref: '#/components/parameters/webhookIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Webhook'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Webhooks
+      summary: Delete webhook
+      description: Deletes the specified webhook.
+      operationId: deleteWebhook
+      parameters:
+        - $ref: '#/components/parameters/webhookIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Search
+  /search:
+    get:
+      tags:
+        - Search
+      summary: Search all
+      description: Searches across all sheets that the user can access.
+      operationId: searchAll
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /search/sheets/{sheetId}:
+    get:
+      tags:
+        - Search
+      summary: Search sheet
+      description: Searches the specified sheet.
+      operationId: searchSheet
+      parameters:
+        - $ref: '#/components/parameters/sheetIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Server Info
+  /serverinfo:
+    get:
+      tags:
+        - Server Info
+      summary: Get server info
+      description: Gets server information including supported locales.
+      operationId: getServerInfo
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerInfo'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Events
+  /events:
+    get:
+      tags:
+        - Events
+      summary: List events
+      description: Gets a list of events. Event Reporting is a premium add-on.
+      operationId: listEvents
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Starting timestamp for events
+        - name: streamPosition
+          in: query
+          schema:
+            type: string
+          description: Stream position for pagination
+        - name: maxCount
+          in: query
+          schema:
+            type: integer
+          description: Maximum number of events to return
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Contacts
+  /contacts:
+    get:
+      tags:
+        - Contacts
+      summary: List contacts
+      description: Gets a list of all contacts.
+      operationId: listContacts
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /contacts/{contactId}:
+    get:
+      tags:
+        - Contacts
+      summary: Get contact
+      description: Gets the specified contact.
+      operationId: getContact
+      parameters:
+        - $ref: '#/components/parameters/contactIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # Groups
+  /groups:
+    get:
+      tags:
+        - Groups
+      summary: List groups
+      description: Gets a list of all groups.
+      operationId: listGroups
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexResult'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    post:
+      tags:
+        - Groups
+      summary: Create group
+      description: Creates a new group.
+      operationId: createGroup
+      parameters:
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /groups/{groupId}:
+    get:
+      tags:
+        - Groups
+      summary: Get group
+      description: Gets the specified group.
+      operationId: getGroup
+      parameters:
+        - $ref: '#/components/parameters/groupIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    put:
+      tags:
+        - Groups
+      summary: Update group
+      description: Updates the specified group.
+      operationId: updateGroup
+      parameters:
+        - $ref: '#/components/parameters/groupIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    
+    delete:
+      tags:
+        - Groups
+      summary: Delete group
+      description: Deletes the specified group.
+      operationId: deleteGroup
+      parameters:
+        - $ref: '#/components/parameters/groupIdPath'
+        - $ref: '#/components/parameters/authorizationHeader'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: API Access Token authentication
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://app.smartsheet.com/b/authorize
+          tokenUrl: https://api.smartsheet.com/2.0/token
+          scopes:
+            READ_SHEETS: Read sheets
+            WRITE_SHEETS: Write sheets
+            SHARE_SHEETS: Share sheets
+            DELETE_SHEETS: Delete sheets
+            CREATE_SHEETS: Create sheets
+            READ_USERS: Read users
+            WRITE_USERS: Write users
+            ADMIN_USERS: Administer users
+            READ_CONTACTS: Read contacts
+            WRITE_CONTACTS: Write contacts
+            SHARE_CONTACTS: Share contacts
+            DELETE_CONTACTS: Delete contacts
+            CREATE_CONTACTS: Create contacts
+
+  parameters:
+    authorizationHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Bearer token for authentication
+      example: Bearer your_access_token_here
+    
+    userIdPath:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: User ID
+    
+    alternateEmailIdPath:
+      name: alternateEmailId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Alternate Email ID
+    
+    sheetIdPath:
+      name: sheetId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Sheet ID
+    
+    rowIdPath:
+      name: rowId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Row ID
+    
+    columnIdPath:
+      name: columnId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Column ID
+    
+    attachmentIdPath:
+      name: attachmentId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Attachment ID
+    
+    discussionIdPath:
+      name: discussionId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Discussion ID
+    
+    commentIdPath:
+      name: commentId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Comment ID
+    
+    workspaceIdPath:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Workspace ID
+    
+    folderIdPath:
+      name: folderId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Folder ID
+    
+    reportIdPath:
+      name: reportId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Report ID
+    
+    sightIdPath:
+      name: sightId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Dashboard (Sight) ID
+    
+    webhookIdPath:
+      name: webhookId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Webhook ID
+    
+    contactIdPath:
+      name: contactId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Contact ID
+    
+    groupIdPath:
+      name: groupId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Group ID
+
+  responses:
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    # Core Result Schemas
+    Result:
+      type: object
+      properties:
+        message:
+          type: string
+          enum:
+            - SUCCESS
+            - PARTIAL_SUCCESS
+          description: Result message
+        resultCode:
+          type: integer
+          enum:
+            - 0
+            - 3
+          description: Result code (0 = Success, 3 = Partial Success)
+        data:
+          type: array
+          items:
+            type: object
+          description: Result data
+      example:
+        message: SUCCESS
+        resultCode: 0
+
+    IndexResult:
+      type: object
+      properties:
+        pageNumber:
+          type: integer
+          readOnly: true
+          description: Current page number
+        pageSize:
+          type: integer
+          nullable: true
+          readOnly: true
+          description: Number of items per page
+        totalPages:
+          type: integer
+          readOnly: true
+          description: Total number of pages
+        totalCount:
+          type: integer
+          readOnly: true
+          description: Total number of items
+        data:
+          type: array
+          items:
+            type: object
+          description: Array of items
+      example:
+        pageNumber: 1
+        pageSize: 50
+        totalPages: 25
+        totalCount: 136
+        data: []
+
+    Error:
+      type: object
+      properties:
+        errorCode:
+          type: integer
+          description: Error code
+        message:
+          type: string
+          description: Error message
+        refId:
+          type: string
+          description: Reference ID for the error
+      example:
+        errorCode: 1042
+        message: Invalid value
+        refId: abc123
+
+    # Alternate Email
+    AlternateEmail:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: AlternateEmail ID
+          example: 8150532427671428
+        confirmed:
+          type: boolean
+          description: Whether the alternate email is confirmed
+          example: true
+        email:
+          type: string
+          format: email
+          description: Alternate email address
+          example: johnathan.doe@smartsheet.com
+
+    # Sheet
+    Sheet:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Sheet ID
+        name:
+          type: string
+          description: Sheet name
+        accessLevel:
+          type: string
+          enum:
+            - VIEWER
+            - EDITOR
+            - EDITOR_SHARE
+            - ADMIN
+            - OWNER
+          description: User's access level
+        permalink:
+          type: string
+          format: uri
+          description: Permanent link to the sheet
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/Column'
+          description: Array of Column objects
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/Row'
+          description: Array of Row objects
+        totalRowCount:
+          type: integer
+          description: Total number of rows
+        effectiveAttachmentOptions:
+          type: array
+          items:
+            type: string
+          description: Attachment options
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+          description: Array of attachments
+        discussions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Discussion'
+          description: Array of discussions
+
+    # Column
+    Column:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Column ID
+        version:
+          type: integer
+          description: Column version
+        index:
+          type: integer
+          description: Column index (position)
+        title:
+          type: string
+          description: Column title
+        type:
+          type: string
+          enum:
+            - TEXT_NUMBER
+            - DATE
+            - DATETIME
+            - CONTACT_LIST
+            - CHECKBOX
+            - PICKLIST
+            - MULTI_PICKLIST
+            - MULTI_CONTACT_LIST
+            - DURATION
+            - PREDECESSOR
+            - ABSTRACT_DATETIME
+          description: Column type
+        primary:
+          type: boolean
+          description: Whether this is the primary column
+        validation:
+          type: boolean
+          description: Whether column validation is enabled
+        width:
+          type: integer
+          description: Column width in pixels
+        locked:
+          type: boolean
+          description: Whether the column is locked
+        lockedForUser:
+          type: boolean
+          description: Whether the column is locked for the current user
+        symbol:
+          type: string
+          description: Symbol type for CHECKBOX or PICKLIST columns
+        systemColumnType:
+          type: string
+          enum:
+            - AUTO_NUMBER
+            - CREATED_DATE
+            - CREATED_BY
+            - MODIFIED_DATE
+            - MODIFIED_BY
+          description: System column type
+        autoNumberFormat:
+          type: object
+          description: Auto-number format settings
+        options:
+          type: array
+          items:
+            type: string
+          description: Picklist options
+        description:
+          type: string
+          description: Column description
+        formula:
+          type: string
+          description: Column formula
+
+    # Row
+    Row:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Row ID
+        sheetId:
+          type: integer
+          format: int64
+          description: Sheet ID
+        rowNumber:
+          type: integer
+          description: Row number
+        expanded:
+          type: boolean
+          description: Whether the row is expanded
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        cells:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cell'
+          description: Array of Cell objects
+        locked:
+          type: boolean
+          description: Whether the row is locked
+        lockedForUser:
+          type: boolean
+          description: Whether the row is locked for current user
+        accessLevel:
+          type: string
+          enum:
+            - VIEWER
+            - EDITOR
+            - EDITOR_SHARE
+            - ADMIN
+            - OWNER
+          description: User's access level to this row
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+          description: Array of attachments
+        discussions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Discussion'
+          description: Array of discussions
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/Column'
+          description: Array of columns (for cross-sheet references)
+        conditionalFormat:
+          type: string
+          description: Conditional formatting rules
+        format:
+          type: string
+          description: Row format
+        permalink:
+          type: string
+          format: uri
+          description: Permanent link to the row
+        filteredOut:
+          type: boolean
+          description: Whether row is filtered out
+        inCriticalPath:
+          type: boolean
+          description: Whether row is in critical path
+        parentId:
+          type: integer
+          format: int64
+          description: Parent row ID (for hierarchy)
+        siblingId:
+          type: integer
+          format: int64
+          description: Sibling row ID (for positioning)
+        toTop:
+          type: boolean
+          description: Move row to top
+        toBottom:
+          type: boolean
+          description: Move row to bottom
+        above:
+          type: boolean
+          description: Position above sibling
+        indent:
+          type: integer
+          description: Indent level change
+        outdent:
+          type: integer
+          description: Outdent level change
+
+    # Cell
+    Cell:
+      type: object
+      properties:
+        columnId:
+          type: integer
+          format: int64
+          description: Column ID
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+          nullable: true
+          description: Cell value
+        displayValue:
+          type: string
+          description: Formatted display value
+        formula:
+          type: string
+          description: Cell formula
+        image:
+          $ref: '#/components/schemas/Image'
+        hyperlink:
+          $ref: '#/components/schemas/Hyperlink'
+        linkInFromCell:
+          $ref: '#/components/schemas/CellLink'
+        conditionalFormat:
+          type: string
+          description: Conditional formatting
+        format:
+          type: string
+          description: Cell formatting
+        strict:
+          type: boolean
+          description: Use strict value parsing
+          default: true
+        overrideValidation:
+          type: boolean
+          description: Override column validation
+        columnType:
+          type: string
+          description: Column type
+        objectValue:
+          type: object
+          description: Object value for complex types
+
+    # Attachment
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Attachment ID
+        parentId:
+          type: integer
+          format: int64
+          description: Parent object ID
+        parentType:
+          type: string
+          enum:
+            - SHEET
+            - ROW
+            - COMMENT
+          description: Parent object type
+        name:
+          type: string
+          description: Attachment name
+        url:
+          type: string
+          format: uri
+          description: Temporary URL to download attachment
+        urlExpiresInMillis:
+          type: integer
+          format: int64
+          description: URL expiration time in milliseconds
+        attachmentType:
+          type: string
+          enum:
+            - FILE
+            - GOOGLE_DRIVE
+            - LINK
+            - BOX_COM
+            - DROPBOX
+            - EVERNOTE
+            - EGNYTE
+            - ONEDRIVE
+          description: Attachment type
+        mimeType:
+          type: string
+          description: MIME type
+        sizeInKb:
+          type: integer
+          description: Size in kilobytes
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        createdBy:
+          $ref: '#/components/schemas/User'
+
+    # Discussion
+    Discussion:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Discussion ID
+        title:
+          type: string
+          description: Discussion title
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+          description: Array of comments
+        commentCount:
+          type: integer
+          description: Number of comments
+        lastCommentedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last comment
+        lastCommentedUser:
+          $ref: '#/components/schemas/User'
+        createdBy:
+          $ref: '#/components/schemas/User'
+        accessLevel:
+          type: string
+          description: User's access level
+        parentId:
+          type: integer
+          format: int64
+          description: Parent object ID
+        parentType:
+          type: string
+          enum:
+            - SHEET
+            - ROW
+          description: Parent type
+        readOnly:
+          type: boolean
+          description: Whether discussion is read-only
+
+    # Comment
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Comment ID
+        discussionId:
+          type: integer
+          format: int64
+          description: Discussion ID
+        text:
+          type: string
+          description: Comment text
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        createdBy:
+          $ref: '#/components/schemas/User'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+          description: Array of attachments
+
+    # User
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: User ID
+        email:
+          type: string
+          format: email
+          description: User's primary email
+        firstName:
+          type: string
+          description: First name
+        lastName:
+          type: string
+          description: Last name
+        name:
+          type: string
+          description: Full name
+        admin:
+          type: boolean
+          description: Whether user is an admin
+        licensedSheetCreator:
+          type: boolean
+          description: Whether user can create sheets
+        groupAdmin:
+          type: boolean
+          description: Whether user is a group admin
+        resourceViewer:
+          type: boolean
+          description: Whether user is a resource viewer
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - PENDING
+            - DECLINED
+          description: User status
+        profileImage:
+          $ref: '#/components/schemas/Image'
+        alternateEmails:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlternateEmail'
+          description: Alternate emails
+
+    # Workspace
+    Workspace:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Workspace ID
+        name:
+          type: string
+          description: Workspace name
+        accessLevel:
+          type: string
+          enum:
+            - VIEWER
+            - EDITOR
+            - EDITOR_SHARE
+            - ADMIN
+            - OWNER
+          description: User's access level
+        permalink:
+          type: string
+          format: uri
+          description: Permanent link
+        sheets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sheet'
+          description: Array of sheets
+        folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Folder'
+          description: Array of folders
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/Report'
+          description: Array of reports
+        sights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sight'
+          description: Array of dashboards
+
+    # Folder
+    Folder:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Folder ID
+        name:
+          type: string
+          description: Folder name
+        permalink:
+          type: string
+          format: uri
+          description: Permanent link
+        sheets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sheet'
+          description: Array of sheets
+        folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Folder'
+          description: Array of subfolders
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/Report'
+          description: Array of reports
+
+    # Report
+    Report:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Report ID
+        name:
+          type: string
+          description: Report name
+        accessLevel:
+          type: string
+          enum:
+            - VIEWER
+            - EDITOR
+            - EDITOR_SHARE
+            - ADMIN
+            - OWNER
+          description: User's access level
+        permalink:
+          type: string
+          format: uri
+          description: Permanent link
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/Column'
+          description: Array of columns
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/Row'
+          description: Array of rows
+        totalRowCount:
+          type: integer
+          description: Total number of rows
+
+    # Sight (Dashboard)
+    Sight:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Dashboard ID
+        name:
+          type: string
+          description: Dashboard name
+        accessLevel:
+          type: string
+          enum:
+            - VIEWER
+            - EDITOR
+            - EDITOR_SHARE
+            - ADMIN
+            - OWNER
+          description: User's access level
+        permalink:
+          type: string
+          format: uri
+          description: Permanent link
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        columnCount:
+          type: integer
+          description: Number of columns
+        backgroundColor:
+          type: string
+          description: Background color
+        widgets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Widget'
+          description: Array of widgets
+
+    # Widget
+    Widget:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Widget ID
+        type:
+          type: string
+          enum:
+            - CHART
+            - IMAGE
+            - METRIC
+            - RICHTEXT
+            - SHORTCUT
+            - TITLE
+            - WEBCONTENT
+          description: Widget type
+        contents:
+          type: object
+          description: Widget contents
+        xPosition:
+          type: integer
+          description: X position
+        yPosition:
+          type: integer
+          description: Y position
+        width:
+          type: integer
+          description: Width
+        height:
+          type: integer
+          description: Height
+
+    # Webhook
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Webhook ID
+        name:
+          type: string
+          description: Webhook name
+        callbackUrl:
+          type: string
+          format: uri
+          description: Callback URL
+        scopeObjectId:
+          type: integer
+          format: int64
+          description: Scope object ID
+        scope:
+          type: string
+          enum:
+            - sheet
+          description: Webhook scope
+        events:
+          type: array
+          items:
+            type: string
+          description: Array of event types
+        version:
+          type: integer
+          description: Webhook version
+        subscope:
+          type: object
+          description: Webhook subscope
+        enabled:
+          type: boolean
+          description: Whether webhook is enabled
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED_BY_OWNER
+            - DISABLED_VERIFICATION_FAILED
+            - DISABLED_CALLBACK_FAILED
+            - DISABLED_SCOPE_INACCESSIBLE
+            - DISABLED_ADMINISTRATIVE
+          description: Webhook status
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        sharedSecret:
+          type: string
+          description: Shared secret for verification
+
+    # Group
+    Group:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Group ID
+        name:
+          type: string
+          description: Group name
+        description:
+          type: string
+          description: Group description
+        owner:
+          type: integer
+          format: int64
+          description: Owner user ID
+        ownerId:
+          type: integer
+          format: int64
+          description: Owner ID
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupMember'
+          description: Array of group members
+
+    # GroupMember
+    GroupMember:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: User ID
+        email:
+          type: string
+          format: email
+          description: Email address
+        firstName:
+          type: string
+          description: First name
+        lastName:
+          type: string
+          description: Last name
+        name:
+          type: string
+          description: Full name
+
+    # Contact
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Contact ID
+        email:
+          type: string
+          format: email
+          description: Email address
+        name:
+          type: string
+          description: Contact name
+
+    # Image
+    Image:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Image ID
+        width:
+          type: integer
+          description: Image width
+        height:
+          type: integer
+          description: Image height
+        altText:
+          type: string
+          description: Alt text
+
+    # Hyperlink
+    Hyperlink:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL
+        sheetId:
+          type: integer
+          format: int64
+          description: Sheet ID (for internal links)
+        reportId:
+          type: integer
+          format: int64
+          description: Report ID (for internal links)
+        sightId:
+          type: integer
+          format: int64
+          description: Dashboard ID (for internal links)
+
+    # CellLink
+    CellLink:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - OK
+            - BROKEN
+            - INACCESSIBLE
+          description: Link status
+        sheetId:
+          type: integer
+          format: int64
+          description: Source sheet ID
+        rowId:
+          type: integer
+          format: int64
+          description: Source row ID
+        columnId:
+          type: integer
+          format: int64
+          description: Source column ID
+        sheetName:
+          type: string
+          description: Source sheet name
+
+    # SearchResult
+    SearchResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResultItem'
+          description: Array of search results
+        totalCount:
+          type: integer
+          description: Total number of results
+
+    # SearchResultItem
+    SearchResultItem:
+      type: object
+      properties:
+        objectType:
+          type: string
+          enum:
+            - row
+            - discussion
+            - attachment
+            - sheet
+          description: Object type
+        objectId:
+          type: integer
+          format: int64
+          description: Object ID
+        contextData:
+          type: array
+          items:
+            type: string
+          description: Context data
+        text:
+          type: string
+          description: Matching text
+        parentObjectType:
+          type: string
+          description: Parent object type
+        parentObjectId:
+          type: integer
+          format: int64
+          description: Parent object ID
+        parentObjectName:
+          type: string
+          description: Parent object name
+
+    # ServerInfo
+    ServerInfo:
+      type: object
+      properties:
+        formats:
+          type: object
+          description: Supported formats
+        featureInfo:
+          type: object
+          description: Feature information
+        supportedLocales:
+          type: array
+          items:
+            type: string
+          description: Supported locales
+
+    # EventResult
+    EventResult:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+          description: Array of events
+        moreAvailable:
+          type: boolean
+          description: Whether more events are available
+        newStreamPosition:
+          type: string
+          description: New stream position for pagination
+
+    # Event
+    Event:
+      type: object
+      properties:
+        eventId:
+          type: string
+          description: Event ID
+        objectType:
+          type: string
+          description: Object type
+        action:
+          type: string
+          description: Action performed
+        objectId:
+          type: integer
+          format: int64
+          description: Object ID
+        userId:
+          type: integer
+          format: int64
+          description: User ID who performed the action
+        requestUserId:
+          type: integer
+          format: int64
+          description: Requesting user ID
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+        additionalDetails:
+          type: object
+          description: Additional event details
