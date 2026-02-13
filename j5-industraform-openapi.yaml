@@ -1,0 +1,1068 @@
+openapi: 3.0.3
+
+info:
+  title: j5 IndustraForm API
+  version: "30"
+  description: >
+    REST and Datastore APIs for the j5 IndustraForm platform by Hexagon.
+    The REST API (v30) provides access to data point history.
+    The Datastore API provides access to configuration data including area hierarchies,
+    asset registers, user details, status/category options, isolation point details,
+    and predefined message details.
+
+servers:
+  - url: https://{j5ServerURL}
+    description: j5 Server
+    variables:
+      j5ServerURL:
+        default: your-j5-server.example.com
+        description: The hostname of your j5 server instance.
+
+security:
+  - basicAuth: []
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic Authentication using a j5 username and password.
+
+  parameters:
+    locale:
+      name: locale
+      in: query
+      required: false
+      description: >
+        Specifies a language for the returned data, as an ISO 639-1 language code
+        (e.g. `fr` for French, `en` for English).
+      schema:
+        type: string
+        example: en-US
+
+    flathierarchy:
+      name: flathierarchy
+      in: query
+      required: false
+      description: >
+        Controls whether hierarchy data is returned in table or tree form.
+        `true` returns a flat list of records each containing a `parent` field.
+        `false` returns nested records each containing a list of child records.
+      schema:
+        type: boolean
+        example: true
+
+  schemas:
+    Meta:
+      type: object
+      description: Metadata about the request.
+      properties:
+        requestedBy:
+          type: string
+          description: The username that made the request.
+          example: jsmith
+        requestDate:
+          type: string
+          format: date-time
+          description: The UTC timestamp when the request was processed.
+          example: "2024-06-26T15:23:06.904360Z"
+
+    DataPointHistoryRecord:
+      type: object
+      description: A single historical value and its timestamp for a data point.
+      properties:
+        value:
+          type: string
+          description: The recorded value of the data point.
+          example: "874"
+        timestamp:
+          type: string
+          format: date-time
+          description: The UTC timestamp when the value was recorded.
+          example: "2024-06-21T09:20:42.757483Z"
+
+    DataPointHistoryResponse:
+      type: object
+      description: >
+        Response containing historical records for one or more data points.
+        The `records` map is keyed by data point ID.
+      properties:
+        meta:
+          $ref: '#/components/schemas/Meta'
+        records:
+          type: object
+          description: >
+            A map where each key is a data point ID and the value is an array
+            of historical records for that data point.
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/DataPointHistoryRecord'
+          example:
+            dp_001:
+              - value: "874"
+                timestamp: "2024-06-21T09:20:42.757483Z"
+            dp_002:
+              - value: "542"
+                timestamp: "2024-06-21T09:20:42.757483Z"
+
+    DataPointProperties:
+      type: object
+      description: Properties of a single data point linked to an asset.
+      properties:
+        data_point_id:
+          type: string
+          description: The unique identifier of the data point.
+          example: dp_001
+        description:
+          type: string
+          description: The description of the data point.
+          example: "Pump inlet pressure"
+        label:
+          type: string
+          description: The display label of the data point.
+          example: "Inlet Pressure"
+        input_type:
+          type: string
+          description: The input type of the data point (e.g. numeric, text).
+          example: "numeric"
+        unit_of_measure:
+          type: string
+          description: The unit of measurement for the data point.
+          example: "bar"
+
+    AssetDataPointsResponse:
+      type: object
+      description: >
+        Response containing all data point properties linked to a specific asset.
+        Available from v30 update 21: includes description, label, input_type, and
+        unit_of_measure. Before update 21, only data_point_id was returned.
+      properties:
+        meta:
+          type: object
+          description: Metadata about the request.
+          properties:
+            asset_id:
+              type: string
+              description: The asset ID for which data points were retrieved.
+              example: asset_pump_01
+            requestDate:
+              type: string
+              format: date-time
+              description: The UTC timestamp when the request was processed.
+              example: "2024-06-26T15:24:29.131328Z"
+            requestedBy:
+              type: string
+              description: The username that made the request.
+              example: jsmith
+        datapoints:
+          type: array
+          description: List of data point properties linked to the asset.
+          items:
+            $ref: '#/components/schemas/DataPointProperties'
+
+    ErrorResponse:
+      type: object
+      description: A generic error response body.
+      properties:
+        error:
+          type: string
+          description: A description of the error.
+          example: "DatapointID: 'Wrong_datapoint' does not exist."
+
+    # ── Datastore schemas ────────────────────────────────────────────────────
+
+    HierarchyNode:
+      type: object
+      description: >
+        A single node in a hierarchy. When `flathierarchy=true` the `children`
+        field is absent and a `parent` field is present instead. When
+        `flathierarchy=false` the `parent` field may be absent and `children`
+        lists nested nodes.
+      properties:
+        id:
+          type: string
+          description: The unique identifier of the node.
+          example: area_01
+        label:
+          type: string
+          description: The display label of the node.
+          example: "Production Area A"
+        parent:
+          type: string
+          nullable: true
+          description: The ID of the parent node (present in flat hierarchy form).
+          example: site_01
+        color:
+          type: string
+          nullable: true
+          description: An optional color associated with the node.
+          example: "#FF5733"
+        children:
+          type: array
+          description: Child nodes (present in tree hierarchy form).
+          items:
+            $ref: '#/components/schemas/HierarchyNode'
+
+    AssetRegisterItem:
+      type: object
+      description: A single asset from the j5 Asset Register.
+      properties:
+        asset_name:
+          type: string
+          description: The unique name/ID of the asset.
+          example: PUMP-001
+        description:
+          type: string
+          description: The human-readable description of the asset.
+          example: "Feed Water Pump 001"
+
+    TimeZoneItem:
+      type: object
+      description: A single time zone entry.
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the time zone is enabled in j5.
+          example: true
+        label:
+          type: string
+          description: The display label for the time zone.
+          example: "UTC+10:00 (AEST)"
+
+    UserItem:
+      type: object
+      description: A single user from the j5 user database.
+      properties:
+        username:
+          type: string
+          description: The username of the user.
+          example: jsmith
+        full_name:
+          type: string
+          description: The full display name of the user.
+          example: "John Smith"
+        areas:
+          type: array
+          description: The areas the user has access to.
+          items:
+            type: string
+          example:
+            - area_01
+            - area_02
+        user_groups:
+          type: array
+          description: The user group or groups the user belongs to.
+          items:
+            type: string
+          example:
+            - operators
+            - supervisors
+
+    UserGroupItem:
+      type: object
+      description: A single user group.
+      properties:
+        user_group:
+          type: string
+          description: The unique identifier of the user group.
+          example: operators
+        display_name:
+          type: string
+          description: The human-readable display name of the group.
+          example: "Operators"
+
+    CrewNameItem:
+      type: object
+      description: A single crew name entry.
+      properties:
+        logid:
+          type: string
+          description: The log ID associated with the crew.
+          example: crew_001
+        crew_name:
+          type: string
+          description: The name of the crew.
+          example: "Day Shift A"
+
+    StatusOption:
+      type: object
+      description: A single status option.
+      properties:
+        label:
+          type: string
+          description: The display label for the status.
+          example: "Approved"
+        value:
+          type: string
+          description: The internal value for the status.
+          example: "approved"
+
+    CategoryNode:
+      type: object
+      description: >
+        A single category entry. May be returned as a flat list or nested tree
+        depending on the `flathierarchy` parameter.
+      properties:
+        id:
+          type: string
+          description: The unique identifier of the category.
+          example: cat_001
+        label:
+          type: string
+          description: The display label of the category.
+          example: "Safety"
+        color:
+          type: string
+          nullable: true
+          description: An optional color associated with the category.
+          example: "#FF5733"
+        parent:
+          type: string
+          nullable: true
+          description: The ID of the parent category (flat hierarchy form).
+          example: cat_root
+        children:
+          type: array
+          description: Child category nodes (tree hierarchy form).
+          items:
+            $ref: '#/components/schemas/CategoryNode'
+
+    IsolationPointTypeNode:
+      type: object
+      description: >
+        An isolation point type, including any state options as child nodes.
+      properties:
+        id:
+          type: string
+          description: The unique identifier of the isolation point type.
+          example: ipt_001
+        label:
+          type: string
+          description: The display label of the isolation point type.
+          example: "Electrical Isolation"
+        parent:
+          type: string
+          nullable: true
+          description: The parent node ID.
+          example: null
+        children:
+          type: array
+          description: State options as child nodes.
+          items:
+            $ref: '#/components/schemas/IsolationPointTypeNode'
+
+    IsolationPointItem:
+      type: object
+      description: A single isolation point from the isolation point registry.
+      properties:
+        label:
+          type: string
+          description: The display label of the isolation point.
+          example: "MCC-B12 CB-4"
+        value:
+          type: string
+          description: The internal value/identifier of the isolation point.
+          example: "mcc_b12_cb4"
+
+    PredefinedMessageListItem:
+      type: object
+      description: A predefined message list name entry.
+      properties:
+        value:
+          type: string
+          description: The name/identifier of the predefined message list.
+          example: "Safety Reminders"
+
+    PredefinedMessageItem:
+      type: object
+      description: A single predefined message entry.
+      properties:
+        area:
+          type: string
+          description: The area associated with this predefined message.
+          example: area_01
+        message:
+          type: string
+          description: The full text of the predefined message.
+          example: "Ensure all PPE is worn before entering."
+        message_label:
+          type: string
+          description: The short label for the predefined message.
+          example: "PPE Reminder"
+        message_list:
+          type: string
+          description: The name of the message list this message belongs to.
+          example: "Safety Reminders"
+
+paths:
+
+  # ── REST API ─────────────────────────────────────────────────────────────
+
+  /restserver/30/datapoints/history/list/{data_point_ids}:
+    get:
+      summary: History of one or more data points
+      description: >
+        Extracts the history of one or more data points with their values and
+        timestamps. The `data_point_ids` path parameter accepts a comma-separated
+        list of data point IDs.
+
+        Available from **v30 update 16** (July 2024).
+        The `fromDate` and `toDate` parameters are **required** from **v30 update 21**
+        (February 2025). Before update 21 they were optional, defaulting to the
+        earliest database record and the time of the request respectively.
+      operationId: getDataPointHistoryList
+      tags:
+        - Data Points
+      parameters:
+        - name: data_point_ids
+          in: path
+          required: true
+          description: >
+            A comma-separated list of one or more data point IDs for which
+            history is requested.
+          schema:
+            type: string
+          example: "dp_001,dp_002"
+        - name: fromDate
+          in: query
+          required: true
+          description: >
+            The start date (inclusive) of the time interval for the request,
+            in UTC ISO 8601 format (`YYYY-MM-DDThh:mm:ss.ffffffZ`).
+          schema:
+            type: string
+            format: date-time
+          example: "2023-07-26T14:58:40.000000Z"
+        - name: toDate
+          in: query
+          required: true
+          description: >
+            The end date (inclusive) of the time interval for the request,
+            in UTC ISO 8601 format (`YYYY-MM-DDThh:mm:ss.ffffffZ`).
+          schema:
+            type: string
+            format: date-time
+          example: "2024-06-24T14:58:40.000000Z"
+        - name: pageSize
+          in: query
+          required: false
+          description: >
+            The number of records to return per data point. Maximum is 1,000.
+            Default is 100. If the time period contains fewer records than the
+            requested `pageSize`, only the available records are returned.
+            If a value greater than 1,000 is supplied the API defaults to 1,000
+            and logs a warning.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          example: 5
+      responses:
+        "200":
+          description: >
+            Successful response containing historical records keyed by data point ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataPointHistoryResponse'
+              example:
+                meta:
+                  requestedBy: jsmith
+                  requestDate: "2024-06-26T15:23:06.904360Z"
+                records:
+                  dp_001:
+                    - value: "874"
+                      timestamp: "2024-06-21T09:20:42.757483Z"
+                  dp_002:
+                    - value: "542"
+                      timestamp: "2024-06-21T09:20:42.757483Z"
+        "400":
+          description: >
+            Bad request. Possible causes:
+
+            - A data point ID in the list does not exist.
+
+            - `fromDate` is missing from the URL.
+
+            - `toDate` is missing from the URL.
+
+            - `fromDate` does not match the required format `YYYY-MM-DDThh:mm:ss.ffffffZ`.
+
+            - `toDate` does not match the required format `YYYY-MM-DDThh:mm:ss.ffffffZ`.
+
+            - `fromDate` is later than or equal to `toDate`.
+
+            - `pageSize` contains non-integer characters (e.g. `10c`).
+
+            - A provided skip token is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                datapointNotFound:
+                  summary: Data point does not exist
+                  value:
+                    error: "Error in retrieving datapoint values and timestamps for 'Wrong_datapoint'. Earlier exception DatapointID: 'Wrong_datapoint' does not exist."
+                fromDateMissing:
+                  summary: fromDate missing
+                  value:
+                    error: "A fromDate is required in the URL path."
+                toDateMissing:
+                  summary: toDate missing
+                  value:
+                    error: "A toDate is required in the URL path."
+                fromDateInvalidFormat:
+                  summary: fromDate wrong format
+                  value:
+                    error: "The fromDate: (2024-02-26T14:58:40) does not match the format: %Y-%m-%dT%H:%M:%S.%fZ."
+                toDateInvalidFormat:
+                  summary: toDate wrong format
+                  value:
+                    error: "The toDate: (2024-02-26T14:58:40) does not match the format: %Y-%m-%dT%H:%M:%S.%fZ."
+                dateRangeInvalid:
+                  summary: fromDate is later than toDate
+                  value:
+                    error: "The fromDate (2024-07-26 14:58:40+00:00) must be earlier than the toDate (2024-02-26 14:58:40+00:00)."
+                invalidPageSize:
+                  summary: pageSize contains non-integer characters
+                  value:
+                    error: "The page size '10c' is not valid. Please ensure it is an integer and try again."
+                invalidSkipToken:
+                  summary: Invalid skip token
+                  value:
+                    error: "The skip token:'Wrong_token' is not valid. Please ensure it is copied correctly and then try again."
+        "404":
+          description: >
+            Not found. The data point IDs were not included in the URL path.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "No matching route for /30/datapoints/history/list/"
+
+  /restserver/30/datapoints/asset/{asset_id}:
+    get:
+      summary: Data points linked to an asset
+      description: >
+        Extracts the data point properties linked to a specific asset.
+
+        Available from **v30 update 16** (July 2024).
+        From **v30 update 21** (February 2025) the response includes `description`,
+        `label`, `input_type`, and `unit_of_measure` for each data point. Before
+        update 21 only the `data_point_id` was included.
+      operationId: getAssetDataPoints
+      tags:
+        - Data Points
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          description: The unique identifier of the asset.
+          schema:
+            type: string
+          example: asset_pump_01
+      responses:
+        "200":
+          description: Successful response containing all data points linked to the asset.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDataPointsResponse'
+              example:
+                meta:
+                  asset_id: asset_pump_01
+                  requestDate: "2024-06-26T15:24:29.131328Z"
+                  requestedBy: jsmith
+                datapoints:
+                  - data_point_id: dp_001
+                    description: "Pump inlet pressure"
+                    label: "Inlet Pressure"
+                    input_type: "numeric"
+                    unit_of_measure: "bar"
+                  - data_point_id: dp_002
+                    description: "Pump outlet temperature"
+                    label: "Outlet Temp"
+                    input_type: "numeric"
+                    unit_of_measure: "°C"
+        "400":
+          description: >
+            Bad request. The asset ID was provided but does not exist in the system.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Error in retrieving datapoint values and timestamps for 'Wrong_asset'. Earlier exception AssetID: 'Wrong_asset' does not exist."
+        "404":
+          description: >
+            Not found. The asset ID was not included in the URL path.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "No matching route for /30/datapoints/asset/"
+
+  # ── Datastore API ─────────────────────────────────────────────────────────
+
+  /ssf/datastore/predefined/area_hierarchy:
+    get:
+      summary: Area hierarchy
+      description: Extracts the area hierarchy details.
+      operationId: getAreaHierarchy
+      tags:
+        - Datastore - Area, Assets & Time Zones
+      parameters:
+        - $ref: '#/components/parameters/flathierarchy'
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: >
+            Successful response containing area hierarchy nodes.
+            Structure varies based on the `flathierarchy` parameter.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HierarchyNode'
+
+  /ssf/datastore/database/db_datastore:asset_register:
+    get:
+      summary: Asset register
+      description: Extracts a list of the assets in the j5 Asset Register.
+      operationId: getAssetRegister
+      tags:
+        - Datastore - Area, Assets & Time Zones
+      parameters:
+        - name: tablename
+          in: query
+          required: true
+          description: The database table name to query.
+          schema:
+            type: string
+            enum:
+              - asset_register
+          example: asset_register
+        - name: id_column
+          in: query
+          required: true
+          description: The column to use as the record ID.
+          schema:
+            type: string
+            enum:
+              - asset_name
+          example: asset_name
+        - name: label_column
+          in: query
+          required: true
+          description: The column to use as the record label.
+          schema:
+            type: string
+            enum:
+              - description
+          example: description
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of assets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssetRegisterItem'
+
+  /ssf/datastore/predefined/timezones:
+    get:
+      summary: Time zones
+      description: Extracts a list of the time zone details.
+      operationId: getTimeZones
+      tags:
+        - Datastore - Area, Assets & Time Zones
+      parameters:
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of time zones.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimeZoneItem'
+
+  /ssf/datastore/predefined/users:
+    get:
+      summary: Users
+      description: >
+        Extracts a list of the users from the j5 user database.
+        The response type is a list or item lookup depending on whether
+        `users_datastore_as_list` is specified. Dependencies include time zones,
+        groups, and area hierarchy.
+      operationId: getUsers
+      tags:
+        - Datastore - User Details
+      parameters:
+        - name: users_datastore_as_list
+          in: query
+          required: false
+          description: >
+            When set to `true`, returns user data as a flat list. When absent or
+            `false`, returns as an item lookup.
+          schema:
+            type: boolean
+          example: true
+        - name: use_compressed_tree
+          in: query
+          required: false
+          description: Returns the tree structure in a compressed format when `true`.
+          schema:
+            type: boolean
+          example: true
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of users.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserItem'
+
+  /ssf/datastore/predefined/groups:
+    get:
+      summary: User groups
+      description: Extracts a list of the user groups.
+      operationId: getUserGroups
+      tags:
+        - Datastore - User Details
+      parameters:
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of user groups.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserGroupItem'
+
+  /ssf/datastore/database/db_datastore:crew:
+    get:
+      summary: Crew names
+      description: Extracts a list of the configured crew names.
+      operationId: getCrewNames
+      tags:
+        - Datastore - User Details
+      parameters:
+        - name: tablename
+          in: query
+          required: true
+          description: The database table name to query.
+          schema:
+            type: string
+            enum:
+              - crew
+          example: crew
+        - name: id_column
+          in: query
+          required: true
+          description: The column to use as the record ID.
+          schema:
+            type: string
+            enum:
+              - logid
+          example: logid
+        - name: label_column
+          in: query
+          required: true
+          description: The column to use as the record label.
+          schema:
+            type: string
+            enum:
+              - crew_name
+          example: crew_name
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of crew names.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CrewNameItem'
+
+  /ssf/datastore/predefined/{status}:
+    get:
+      summary: Status options
+      description: >
+        Extracts a list of the status options for the specified j5 application.
+
+        Valid values for `{status}`:
+
+        | Application | `{status}` value |
+        |---|---|
+        | Control of Work: Permits | `status_cow_permits` |
+        | Control of Work: Isolations | `status_cow_isolations` |
+        | Control of Work: Certificates | `status_cow_certificates` |
+        | Management of Change | `status_moc_logbook` |
+      operationId: getStatusOptions
+      tags:
+        - Datastore - Status & Category Options
+      parameters:
+        - name: status
+          in: path
+          required: true
+          description: The status identifier for the target application.
+          schema:
+            type: string
+            enum:
+              - status_cow_permits
+              - status_cow_isolations
+              - status_cow_certificates
+              - status_moc_logbook
+          example: status_cow_permits
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of status options.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StatusOption'
+
+  /ssf/datastore/predefined/{category}:
+    get:
+      summary: Category options (predefined — Operations Logbook, Operator Rounds, Work Instructions)
+      description: >
+        Extracts a list of category options for Operations Logbook, Operator Rounds,
+        or Work Instructions using the predefined datastore endpoint.
+
+        Valid values for `{category}`:
+
+        | Application | `{category}` value |
+        |---|---|
+        | Operations Logbook | `logtype_hierarchy` |
+        | Operator Rounds | `operator_round_type` |
+        | Work Instructions | `work_category` |
+
+        For Control of Work and Management of Change categories, use the
+        `/ssf/datastore/hierarchy/hierarchy_datastore:{category}:name:parent:description`
+        endpoint instead.
+      operationId: getCategoryOptionsPredefined
+      tags:
+        - Datastore - Status & Category Options
+      parameters:
+        - name: category
+          in: path
+          required: true
+          description: The category identifier for the target application.
+          schema:
+            type: string
+            enum:
+              - logtype_hierarchy
+              - operator_round_type
+              - work_category
+          example: logtype_hierarchy
+        - $ref: '#/components/parameters/locale'
+        - $ref: '#/components/parameters/flathierarchy'
+      responses:
+        "200":
+          description: Successful response containing a list/hierarchy of category options.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryNode'
+
+  /ssf/datastore/hierarchy/hierarchy_datastore:{category}:name:parent:description:
+    get:
+      summary: Category options (hierarchy — Control of Work, Management of Change)
+      description: >
+        Extracts a list of category options for Control of Work and Management of
+        Change applications using the hierarchy datastore endpoint.
+
+        Valid values for `{category}`:
+
+        | Application | `{category}` value |
+        |---|---|
+        | Control of Work: Permits | `cow_permit_types` |
+        | Control of Work: Isolations | `cow_isolation_types` |
+        | Control of Work: Certificates | `cow_certificate_types` |
+        | Management of Change | `moc_category` |
+      operationId: getCategoryOptionsHierarchy
+      tags:
+        - Datastore - Status & Category Options
+      parameters:
+        - name: category
+          in: path
+          required: true
+          description: The category identifier for the target application.
+          schema:
+            type: string
+            enum:
+              - cow_permit_types
+              - cow_isolation_types
+              - cow_certificate_types
+              - moc_category
+          example: cow_permit_types
+        - name: tablename
+          in: query
+          required: true
+          description: The table name, matching the `{category}` path parameter value.
+          schema:
+            type: string
+          example: cow_permit_types
+        - name: id_column
+          in: query
+          required: true
+          description: The column to use as the record ID.
+          schema:
+            type: string
+            enum:
+              - name
+          example: name
+        - name: parent_id_column
+          in: query
+          required: true
+          description: The column to use as the parent ID.
+          schema:
+            type: string
+            enum:
+              - parent
+          example: parent
+        - name: label_column
+          in: query
+          required: true
+          description: The column to use as the record label.
+          schema:
+            type: string
+            enum:
+              - description
+          example: description
+        - $ref: '#/components/parameters/locale'
+        - $ref: '#/components/parameters/flathierarchy'
+      responses:
+        "200":
+          description: Successful response containing a hierarchy of category options.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryNode'
+
+  /ssf/datastore/predefined/isolation_point_type:
+    get:
+      summary: Isolation point types
+      description: >
+        Extracts a list of the isolation point types along with their state
+        options as child nodes.
+      operationId: getIsolationPointTypes
+      tags:
+        - Datastore - Isolation Point Details
+      parameters:
+        - $ref: '#/components/parameters/locale'
+        - $ref: '#/components/parameters/flathierarchy'
+      responses:
+        "200":
+          description: Successful response containing a hierarchy of isolation point types.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IsolationPointTypeNode'
+
+  /ssf/datastore/predefined/isolation_points:
+    get:
+      summary: Isolation point registry
+      description: Extracts a list of the configured isolation points.
+      operationId: getIsolationPoints
+      tags:
+        - Datastore - Isolation Point Details
+      parameters:
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of isolation points.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IsolationPointItem'
+
+  /ssf/datastore/predefined/predefinedMessageLists:
+    get:
+      summary: Predefined message lists
+      description: Extracts a list of the configured predefined message list names.
+      operationId: getPredefinedMessageLists
+      tags:
+        - Datastore - Predefined Message Details
+      parameters:
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of predefined message list names.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PredefinedMessageListItem'
+
+  /ssf/datastore/predefined/predefinedMessages:
+    get:
+      summary: Predefined messages
+      description: Extracts a list of the configured predefined messages.
+      operationId: getPredefinedMessages
+      tags:
+        - Datastore - Predefined Message Details
+      parameters:
+        - $ref: '#/components/parameters/locale'
+      responses:
+        "200":
+          description: Successful response containing a list of predefined messages.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PredefinedMessageItem'
+
+tags:
+  - name: Data Points
+    description: >
+      REST API (v30) endpoints for querying data point history and asset-linked
+      data points. Available from v30 update 16 (July 2024). Requires HTTP Basic
+      Authentication.
+  - name: Datastore - Area, Assets & Time Zones
+    description: >
+      Datastore API endpoints for retrieving area hierarchy, asset register,
+      and time zone configuration data.
+  - name: Datastore - User Details
+    description: >
+      Datastore API endpoints for retrieving user and user group information,
+      including crew names.
+  - name: Datastore - Status & Category Options
+    description: >
+      Datastore API endpoints for retrieving form status and category options
+      across all j5 applications.
+  - name: Datastore - Isolation Point Details
+    description: >
+      Datastore API endpoints for retrieving isolation point types and registry.
+  - name: Datastore - Predefined Message Details
+    description: >
+      Datastore API endpoints for retrieving predefined message lists and messages.
