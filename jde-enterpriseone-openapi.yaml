@@ -5,16 +5,27 @@ info:
     OpenAPI 3.0 specification for Oracle JD Edwards EnterpriseOne 9.2.
     Covers two API surfaces:
     - **AIS (Application Interface Services) Server** – Authentication, Form Service,
-      Data/Table Query, Batch Form, App Stack, and Admin endpoints.
-    - **Server Manager** – Instance management, monitoring, log control, cache management,
-      and provisioning endpoints.
+      Data/Table Query, Batch Form, App Stack, Business Function, Media Object,
+      Orchestrator, Watchlist, Jargon, Report, Preference, Processing Options,
+      Task Authorization, Notification, Message, Logging, and Config endpoints.
+    - **Server Manager** – Authentication, Instance management, monitoring, log control,
+      cache management, and provisioning endpoints.
 
     ### Base URLs
     - AIS Server: `http://{ais-host}:{ais-port}/jderest`
     - Server Manager: `https://{smc-host}:{smc-port}/manage/mgmtrestservice`
 
     ### Authentication
-    AIS endpoints require a session token obtained via `/tokenrequest`.  
+    AIS endpoints support multiple authentication methods:
+    1. **Token-based**: Obtain a session token via `/tokenrequest` (POST) passing
+       `username`/`password` in the JSON body. Include the token in subsequent
+       requests via the `token` body field or the `jde-AIS-Auth` header.
+    2. **HTTP Basic Auth**: Pass credentials in the `Authorization: Basic` header
+       (username/password can be omitted from body when using Basic Auth).
+    3. **JWT / OAuth 2.0**: Pass a JWT in the `Authorization: Bearer` header
+       (requires OAM/trusted node configuration).
+    4. **psToken**: Pass a PeopleSoft token in the `psToken` body field.
+
     Server Manager endpoints use HTTP Basic Authentication.
 
   version: "9.2"
@@ -39,8 +50,8 @@ servers:
         default: jdesmc.example.com
         description: Server Manager Console hostname
       smcPort:
-        default: "8998"
-        description: Server Manager Console port
+        default: "8999"
+        description: Server Manager Console port (default 8999)
 
 tags:
   - name: AIS Authentication
@@ -53,10 +64,46 @@ tags:
     description: Stateful form session management
   - name: AIS Data Service
     description: Query EnterpriseOne tables and business views
+  - name: AIS Business Function Service
+    description: Execute EnterpriseOne Business Functions (BSFNs)
+  - name: AIS Orchestrator Service
+    description: Execute orchestrations
+  - name: AIS Media Object Service
+    description: Manage media object attachments (file upload/download, text, URL)
+  - name: AIS Watchlist Service
+    description: Execute EnterpriseOne watchlists
+  - name: AIS Jargon Service
+    description: Fetch jargon and language-specific translations
+  - name: AIS Report Service
+    description: Execute and monitor EnterpriseOne reports (batch jobs)
+  - name: AIS Processing Option Service
+    description: Retrieve processing option values for applications
+  - name: AIS Preference Service
+    description: Manage user preference records (F98950)
+  - name: AIS Task Authorization Service
+    description: Retrieve authorized task/menu information
+  - name: AIS Notification Service
+    description: Manage and execute notifications
+  - name: AIS Message Service
+    description: Send EnterpriseOne messages (PPAT) to email or work center
+  - name: AIS Logging Service
+    description: Write entries to the AIS server log
   - name: AIS Config Service
     description: Retrieve AIS server configuration
-  - name: AIS Admin Service
-    description: AIS server administration utilities
+  - name: AIS External Service
+    description: Invoke external REST/FTP services via soft coding
+  - name: AIS Utilities Service
+    description: Utility services (object list queries, etc.)
+  - name: AIS OpenAPI Catalog
+    description: Retrieve OpenAPI / Swagger definitions for orchestrations
+  - name: AIS Orchestration Discovery
+    description: Discover available orchestrations
+  - name: AIS Scheduler Service
+    description: Manage scheduled notifications and orchestrations
+  - name: AIS UDO Service
+    description: Retrieve user defined object (UDO) details
+  - name: Server Manager Authentication
+    description: Authenticate to Server Manager Console
   - name: Server Manager Instances
     description: Manage JDE server instances
   - name: Server Manager Monitoring
@@ -74,8 +121,23 @@ components:
     AISTokenAuth:
       type: apiKey
       in: header
-      name: jde_AIS_AUTH
-      description: Session token obtained from /tokenrequest. Pass in the request body as `token` field, or as the `jde_AIS_AUTH` header.
+      name: jde-AIS-Auth
+      description: |
+        Session token obtained from /tokenrequest. Pass either in the
+        request body as the `token` field, or as the `jde-AIS-Auth` header.
+    AISBasicAuth:
+      type: http
+      scheme: basic
+      description: |
+        HTTP Basic Auth for AIS endpoints. Credentials (username:password)
+        are base64-encoded in the Authorization header.
+    AISBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT / OAuth 2.0 Bearer token. Requires OAM or trusted node
+        configuration on the HTML Server.
     BasicAuth:
       type: http
       scheme: basic
@@ -89,83 +151,158 @@ components:
     # ── AIS Auth ──────────────────────────────────────────────
     TokenRequest:
       type: object
-      required: [username, password, deviceName]
+      description: |
+        Token request body. Authentication can be provided via:
+        - `username` + `password` in body
+        - HTTP Basic Auth header (omit username/password from body)
+        - JWT Bearer header (omit username/password from body)
+        - `psToken` field (PeopleSoft token)
+        The `deviceName` field is optional; if omitted, the requesting
+        IP address is used as the device identifier.
       properties:
         username:
           type: string
+          description: JD Edwards EnterpriseOne username (required if not using Basic Auth, JWT, or psToken)
           example: JDE
         password:
           type: string
           format: password
+          description: JD Edwards EnterpriseOne password (required if not using Basic Auth, JWT, or psToken)
           example: JDE
         deviceName:
           type: string
-          description: Identifies the calling device or application
-          example: RefoldIntegration
+          description: Identifier for the calling device or application. If not provided, the requesting IP address is used.
+          example: MyDevice
         environment:
           type: string
-          description: JDE environment (e.g. JDV920, JPY920, JPD920)
+          description: JDE environment to use for login. If not specified, the AIS Server default is used.
           example: JDV920
         role:
           type: string
-          description: JDE role (defaults to *ALL)
+          description: JDE role to use for login. If not specified, the AIS Server default is used.
           example: "*ALL"
+        jasserver:
+          type: string
+          description: HTML (JAS) Server to use for login. If not specified, the AIS Server default is used.
+        psToken:
+          type: string
+          description: PeopleSoft token for psToken-based authentication.
         requiredCapabilities:
           type: array
           items:
             type: string
+          description: List of required AIS capabilities the client needs.
           example: []
 
     TokenResponse:
       type: object
       properties:
-        userInfo:
-          $ref: '#/components/schemas/UserInfo'
+        username:
+          type: string
+          example: JDE
         environment:
           type: string
           example: JDV920
         role:
           type: string
           example: "*ALL"
-        token:
-          type: string
-          description: Session token — include in all subsequent AIS requests
-          example: "abcdef1234567890abcdef1234567890"
         jasserver:
           type: string
           description: JAS server that issued the token
-        username:
+        userInfo:
+          $ref: '#/components/schemas/UserInfo'
+        userAuthorized:
+          type: boolean
+          description: Whether the user is authorized for AIS access
+        adminAuthorized:
+          type: boolean
+          description: Whether the user has admin privileges
+        aisSessionCookie:
           type: string
+          description: AIS session cookie value
+        version:
+          type: string
+          nullable: true
+        poStringJSON:
+          type: string
+          nullable: true
+        altPoStringJSON:
+          type: string
+          nullable: true
+        deprecated:
+          type: boolean
+          description: Indicates if the v1 endpoint is deprecated (true for v1 responses)
 
     UserInfo:
       type: object
       properties:
+        token:
+          type: string
+          description: Session token — include in all subsequent AIS requests
+          example: "044abcdef1234567890..."
         username:
           type: string
         addressNumber:
+          type: integer
+        alphaName:
           type: string
-        userLanguage:
+          description: Alpha name from Address Book
+        appsRelease:
           type: string
-        userCountry:
+          description: Applications release (e.g. E920)
+          example: E920
+        langPref:
           type: string
-        userId:
+          description: Language preference code
+        locale:
           type: string
-        environment:
+          example: en
+        dateFormat:
           type: string
-        role:
+          description: Date format preference (e.g. MDY, DMY)
+          example: MDY
+        dateSeperator:
+          type: string
+          description: Date separator character
+          example: "/"
+        simpleDateFormat:
+          type: string
+          example: "MM/dd/yy"
+        decimalFormat:
+          type: string
+          description: Decimal separator character
+          example: "."
+        country:
           type: string
 
     LogoutRequest:
       type: object
-      required: [token]
       properties:
         token:
+          type: string
+          description: The AIS token to invalidate
+
+    ValidateTokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          description: The AIS token to validate
+        touch:
+          type: boolean
+          description: Touch the user session to extend the session timeout
+        deviceName:
+          type: string
+        environment:
           type: string
 
     # ── AIS Common ────────────────────────────────────────────
     AISBaseRequest:
       type: object
-      required: [token]
+      description: |
+        Base request fields common to most AIS service calls. The `token`
+        field is required unless using Basic Auth, JWT, or psToken
+        authentication headers.
       properties:
         token:
           type: string
@@ -176,11 +313,18 @@ components:
         role:
           type: string
           example: "*ALL"
+        jasserver:
+          type: string
+          description: Target JAS server (optional)
         deviceName:
           type: string
         returnControlIDs:
           type: string
-          description: Comma-separated list of control IDs to return in response
+          description: Pipe-separated or comma-separated list of control IDs to return
+          example: "1[0]|2[0]|3[0]"
+        outputType:
+          type: string
+          description: Controls the output format (e.g. VERSION2, GRID_DATA)
 
     FormServiceControl:
       type: object
@@ -204,6 +348,7 @@ components:
           type: string
           enum:
             - SetQBEValue
+            - SetControlValue
             - DoAction
             - SelectRow
             - SelectAllRows
@@ -214,6 +359,15 @@ components:
             - DeleteGridRow
             - GridCellClick
             - SetGridCellValue
+            - SetGridComboValue
+            - SetCheckboxValue
+          description: |
+            Form action command. Common commands:
+            - SetQBEValue: Set a Query By Example value
+            - SetControlValue: Set a form control value
+            - DoAction: Press a button or trigger an event
+            - SelectRow / SelectAllRows / DeselectRow: Grid row selection
+            - InsertGridRow / EditGridRow / UpdateRow / DeleteGridRow: Grid CRUD
           example: SetQBEValue
         value:
           type: string
@@ -226,8 +380,11 @@ components:
           properties:
             formName:
               type: string
-              description: JDE form name (e.g. W0101A)
-              example: W0101A
+              description: |
+                JDE form name. Can be specified as:
+                - Short form: `W0101A` (with separate version field)
+                - Full form: `P0101_W0101A_ZJDE0001`
+              example: P0101_W0101A
             version:
               type: string
               description: Processing option version
@@ -240,6 +397,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/FormServiceAction'
+            formServiceAction:
+              type: string
+              description: Form service action type (R=Read, U=Update, etc.)
+              enum: [R, U, A, D]
             findOnEntry:
               type: boolean
               default: true
@@ -250,6 +411,16 @@ components:
             stopOnWarning:
               type: boolean
               default: false
+            formServiceDemo:
+              type: boolean
+              default: false
+              description: When true, returns form metadata including control IDs without executing actions
+            aliasNaming:
+              type: boolean
+              description: Use alias naming in output instead of control IDs
+            returnDescriptions:
+              type: boolean
+              description: Include field descriptions in output
 
     FormServiceResponse:
       type: object
@@ -265,6 +436,7 @@ components:
               $ref: '#/components/schemas/GridData'
             txtMessage:
               type: string
+          additionalProperties: true
         stackId:
           type: integer
         stateId:
@@ -279,6 +451,8 @@ components:
     GridData:
       type: object
       properties:
+        id:
+          type: integer
         gridRecords:
           type: array
           items:
@@ -291,6 +465,9 @@ components:
               type: integer
             moreRecords:
               type: boolean
+        columns:
+          type: object
+          additionalProperties: true
 
     JDEError:
       type: object
@@ -301,17 +478,20 @@ components:
           type: string
         errorOrigin:
           type: string
+        mobile:
+          type: string
 
     # ── Batch Form Service ────────────────────────────────────
     BatchFormRequest:
       type: object
-      required: [token, requests]
       properties:
         token:
           type: string
         environment:
           type: string
         role:
+          type: string
+        deviceName:
           type: string
         requests:
           type: array
@@ -341,6 +521,20 @@ components:
             rid:
               type: string
 
+    NextRecordRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          properties:
+            stackId:
+              type: integer
+            stateId:
+              type: integer
+            rid:
+              type: string
+            maxPageSize:
+              type: string
+
     # ── Data Service ──────────────────────────────────────────
     TableQueryRequest:
       allOf:
@@ -367,21 +561,9 @@ components:
               type: string
               description: Comma-separated column aliases to return
               example: "AN8,ALPH,AT1"
-
-    SimpleTableQueryRequest:
-      allOf:
-        - $ref: '#/components/schemas/AISBaseRequest'
-        - type: object
-          required: [targetName]
-          properties:
-            targetName:
-              type: string
-              example: F0101
-            query:
-              $ref: '#/components/schemas/QueryCondition'
-            maxPageSize:
-              type: string
-              example: "100"
+            findOnEntry:
+              type: boolean
+              default: true
 
     QueryCondition:
       type: object
@@ -389,6 +571,11 @@ components:
         autoFind:
           type: boolean
           default: true
+        matchType:
+          type: string
+          enum: [MATCH_ALL, MATCH_ANY]
+          default: MATCH_ALL
+          description: Whether all conditions must match (AND) or any (OR)
         condition:
           type: array
           items:
@@ -402,7 +589,22 @@ components:
           description: Column alias (e.g. AN8, DOCO)
         operator:
           type: string
-          enum: [EQUAL, NOT_EQUAL, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL, STR_START_WITH, STR_END_WITH, STR_CONTAIN, LIST, BETWEEN, BLANK, NOT_BLANK]
+          enum:
+            - EQUAL
+            - NOT_EQUAL
+            - GREATER
+            - GREATER_EQUAL
+            - LESS
+            - LESS_EQUAL
+            - STR_START_WITH
+            - STR_END_WITH
+            - STR_CONTAIN
+            - STR_NOT_BLANK
+            - STR_BLANK
+            - LIST
+            - BETWEEN
+            - BLANK
+            - NOT_BLANK
           example: EQUAL
         value:
           type: array
@@ -436,6 +638,16 @@ components:
             properties:
               column:
                 type: string
+        aggregates:
+          type: array
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+              aggregation:
+                type: string
+                enum: [SUM, COUNT, AVG, MIN, MAX]
 
     DataServiceResponse:
       type: object
@@ -443,11 +655,139 @@ components:
         fs_DATABROWSE:
           type: object
           properties:
+            title:
+              type: string
             data:
               type: object
               properties:
                 gridData:
                   $ref: '#/components/schemas/GridData'
+
+    # ── Business Function Service ─────────────────────────────
+    BSFNDiscoverRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [objectName]
+          properties:
+            objectName:
+              type: string
+              description: Business function object name (e.g. B0000130)
+              example: B0000130
+            returnDetail:
+              type: boolean
+              default: false
+
+    BSFNExecuteRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [bsfnName]
+          properties:
+            bsfnName:
+              type: string
+              description: Business function name
+            bsfnInput:
+              type: object
+              additionalProperties: true
+              description: Input parameter key-value pairs
+
+    # ── Orchestrator ──────────────────────────────────────────
+    OrchestrationRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        deviceName:
+          type: string
+        environment:
+          type: string
+        role:
+          type: string
+        inputs:
+          type: object
+          additionalProperties: true
+          description: Orchestration input parameters
+
+    # ── Media Object Service ──────────────────────────────────
+    FileListRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [moStructure, moKey]
+          properties:
+            moStructure:
+              type: string
+              description: Media object structure name
+            moKey:
+              type: array
+              items:
+                type: string
+              description: Media object key values
+
+    # ── Watchlist ─────────────────────────────────────────────
+    WatchlistRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [watchlistName]
+          properties:
+            watchlistName:
+              type: string
+              description: Name of the watchlist to execute
+
+    # ── Jargon Service ────────────────────────────────────────
+    JargonRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          properties:
+            ddItems:
+              type: array
+              items:
+                type: string
+              description: List of Data Dictionary items to retrieve jargon for
+
+    # ── Report Service ────────────────────────────────────────
+    ReportExecuteRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [reportName]
+          properties:
+            reportName:
+              type: string
+              description: UBE report name
+            reportVersion:
+              type: string
+              description: Report version
+            reportOutputType:
+              type: string
+              enum: [PDF, CSV, XML]
+
+    ReportStatusRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [jobNumber]
+          properties:
+            jobNumber:
+              type: string
+              description: Job number to check status for
+
+    # ── Processing Option Service ─────────────────────────────
+    POServiceRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [applicationName, version]
+          properties:
+            applicationName:
+              type: string
+              description: Application name (e.g. P0101)
+            version:
+              type: string
+              description: Version name (e.g. ZJDE0001)
 
     # ── Config ────────────────────────────────────────────────
     ConfigResponse:
@@ -463,8 +803,29 @@ components:
           type: array
           items:
             type: string
+        capabilityList:
+          type: array
+          items:
+            type: string
+        aisSessionTimeout:
+          type: integer
+        jasMultipleBaseURLs:
+          type: array
+          items:
+            type: string
 
     # ── Server Manager ────────────────────────────────────────
+    SMAuthRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: jde_admin
+        password:
+          type: string
+          format: password
+
     InstanceInfo:
       type: object
       properties:
@@ -579,17 +940,20 @@ components:
 paths:
 
   # ════════════════════════════════════════════════════════════
-  # AIS — AUTHENTICATION
+  # AIS — AUTHENTICATION (Token Request Service)
   # ════════════════════════════════════════════════════════════
 
   /tokenrequest:
     post:
       tags: [AIS Authentication]
-      summary: Request a session token
+      summary: Request a session token (v1)
       description: |
         Authenticates an EnterpriseOne user and returns a session token.
-        The token must be included in all subsequent AIS requests.
-      operationId: requestToken
+        The token must be included in all subsequent AIS requests via the
+        `token` body field or `jde-AIS-Auth` header. Supports username/password
+        in body, HTTP Basic Auth, JWT Bearer, or psToken authentication.
+        **Note**: The v1 endpoint is deprecated; use `/v2/tokenrequest` instead.
+      operationId: requestTokenV1
       requestBody:
         required: true
         content:
@@ -599,7 +963,7 @@ paths:
             example:
               username: JDE
               password: JDE
-              deviceName: RefoldIntegration
+              deviceName: MyDevice
               environment: JDV920
               role: "*ALL"
       responses:
@@ -616,12 +980,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/StandardError'
 
-  /tokenrequest/v2:
+  /v2/tokenrequest:
+    get:
+      tags: [AIS Authentication]
+      summary: Request a session token via GET (v2)
+      description: |
+        v2 token request via GET — credentials must be supplied via HTTP Basic
+        Auth or JWT Bearer header. Environment, role, and device can be specified
+        via `jde-AIS-Auth-Env`, `jde-AIS-Auth-Role`, and `jde-AIS-Auth-Device` headers.
+      operationId: requestTokenV2Get
+      parameters:
+        - name: jde-AIS-Auth-Env
+          in: header
+          schema:
+            type: string
+          description: Environment to use for login
+        - name: jde-AIS-Auth-Role
+          in: header
+          schema:
+            type: string
+          description: Role to use for login
+        - name: jde-AIS-Auth-Device
+          in: header
+          schema:
+            type: string
+          description: Device name identifier
+      security:
+        - AISBasicAuth: []
+        - AISBearerAuth: []
+      responses:
+        '200':
+          description: Token issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid credentials
     post:
       tags: [AIS Authentication]
       summary: Request a session token (v2)
-      description: v2 variant — same behaviour as v1, adds extended capability negotiation.
-      operationId: requestTokenV2
+      description: |
+        v2 token request — adds extended capability negotiation. Supports all
+        authentication methods (body credentials, Basic Auth, JWT, psToken).
+      operationId: requestTokenV2Post
       requestBody:
         required: true
         content:
@@ -642,12 +1044,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/StandardError'
 
-  /logout:
+  /tokenrequest/logout:
     post:
       tags: [AIS Authentication]
-      summary: End a session
-      description: Invalidates the session token.
-      operationId: logout
+      summary: End a session (v1)
+      description: Invalidates the session token and ends the AIS session.
+      operationId: logoutV1
       security:
         - AISTokenAuth: []
       requestBody:
@@ -662,10 +1064,11 @@ paths:
         '401':
           description: Invalid or expired token
 
-  /v2/logout:
+  /v2/tokenrequest/logout:
     post:
       tags: [AIS Authentication]
       summary: End a session (v2)
+      description: Invalidates the session token and ends the AIS session (v2).
       operationId: logoutV2
       security:
         - AISTokenAuth: []
@@ -678,6 +1081,38 @@ paths:
       responses:
         '200':
           description: Session ended successfully
+
+  /v2/tokenrequest/validate:
+    post:
+      tags: [AIS Authentication]
+      summary: Validate a session token (v2)
+      description: |
+        Validates that the provided AIS token is still active. Returns HTTP 200
+        if valid; any other status code indicates an invalid token. Optionally
+        touch the session to extend the timeout.
+      operationId: validateTokenV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateTokenRequest'
+            example:
+              token: "044RCAgER+J6ZDUAZgotcr4..."
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isValidSession:
+                    type: boolean
+                  timeout:
+                    type: integer
+        '401':
+          description: Token is invalid or expired
 
   # ════════════════════════════════════════════════════════════
   # AIS — FORM SERVICE
@@ -702,7 +1137,7 @@ paths:
             example:
               token: "abcdef1234567890"
               environment: JDV920
-              formName: W0101A
+              formName: P0101_W0101A
               findOnEntry: true
               maxPageSize: "100"
               formInputs:
@@ -749,20 +1184,69 @@ paths:
         '401':
           description: Unauthorized
 
-  /v2/formservice/query:
-    post:
+  /v2/formservice/{application}/{form}:
+    get:
       tags: [AIS Form Service]
       summary: Simple form service query (v2)
-      description: Simplified form query — performs find and returns grid data without additional actions.
+      description: |
+        Simplified form query via GET — opens the specified form and performs
+        a find, returning grid data. Uses the default version.
       operationId: simpleFormQueryV2
       security:
         - AISTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FormServiceRequest'
+        - AISBasicAuth: []
+      parameters:
+        - name: application
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Application ID (e.g. P0101)
+          example: P0101
+        - name: form
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Form ID (e.g. W0101A)
+          example: W0101A
+      responses:
+        '200':
+          description: Query successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormServiceResponse'
+
+  /v2/formservice/{application}/{form}/{version}:
+    get:
+      tags: [AIS Form Service]
+      summary: Simple form service query with version (v2)
+      description: |
+        Simplified form query via GET with explicit processing option version.
+      operationId: simpleFormQueryWithVersionV2
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: application
+          in: path
+          required: true
+          schema:
+            type: string
+          example: P0101
+        - name: form
+          in: path
+          required: true
+          schema:
+            type: string
+          example: W0101A
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+          example: ZJDE0001
       responses:
         '200':
           description: Query successful
@@ -874,11 +1358,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/FormServiceResponse'
 
-  /v2/appstack/nextrecord:
+  /v2/appstack/next:
+    get:
+      tags: [AIS App Stack Service]
+      summary: Fetch next page of records in an app stack session (GET)
+      operationId: appStackNextRecordV2Get
+      security:
+        - AISTokenAuth: []
+      parameters:
+        - name: stackId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: stateId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: rid
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: maxPageSize
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Next page of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormServiceResponse'
     post:
       tags: [AIS App Stack Service]
-      summary: Fetch next page of records in an app stack session
-      operationId: appStackNextRecordV2
+      summary: Fetch next page of records in an app stack session (POST)
+      operationId: appStackNextRecordV2Post
       security:
         - AISTokenAuth: []
       requestBody:
@@ -886,19 +1403,7 @@ paths:
         content:
           application/json:
             schema:
-              allOf:
-                - $ref: '#/components/schemas/AISBaseRequest'
-                - type: object
-                  required: [stackId, stateId, rid]
-                  properties:
-                    stackId:
-                      type: integer
-                    stateId:
-                      type: integer
-                    rid:
-                      type: string
-                    maxPageSize:
-                      type: string
+              $ref: '#/components/schemas/NextRecordRequest'
       responses:
         '200':
           description: Next page of records
@@ -973,13 +1478,16 @@ paths:
                 $ref: '#/components/schemas/DataServiceResponse'
 
   /v2/dataservice/table/{tableName}:
-    post:
+    get:
       tags: [AIS Data Service]
       summary: Simple table query (v2)
-      description: Convenience endpoint for querying a named table without specifying targetType.
+      description: |
+        Convenience GET endpoint for querying a named table. Supports
+        Basic Auth or token-based authentication via headers.
       operationId: simpleTableQueryV2
       security:
         - AISTokenAuth: []
+        - AISBasicAuth: []
       parameters:
         - name: tableName
           in: path
@@ -987,12 +1495,6 @@ paths:
           schema:
             type: string
           example: F0101
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SimpleTableQueryRequest'
       responses:
         '200':
           description: Query results
@@ -1002,13 +1504,14 @@ paths:
                 $ref: '#/components/schemas/DataServiceResponse'
 
   /v2/dataservice/view/{viewName}:
-    post:
+    get:
       tags: [AIS Data Service]
       summary: Simple view query (v2)
-      description: Convenience endpoint for querying a named business view.
+      description: Convenience GET endpoint for querying a named business view.
       operationId: simpleViewQueryV2
       security:
         - AISTokenAuth: []
+        - AISBasicAuth: []
       parameters:
         - name: viewName
           in: path
@@ -1016,12 +1519,6 @@ paths:
           schema:
             type: string
           example: V0101A
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SimpleTableQueryRequest'
       responses:
         '200':
           description: Query results
@@ -1030,11 +1527,751 @@ paths:
               schema:
                 $ref: '#/components/schemas/DataServiceResponse'
 
-  /v2/dataservice/nextrecord:
+  /v2/dataservice/next:
+    get:
+      tags: [AIS Data Service]
+      summary: Fetch next page of data service results (GET)
+      operationId: dataServiceNextRecordV2Get
+      security:
+        - AISTokenAuth: []
+      parameters:
+        - name: stackId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: stateId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: rid
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: maxPageSize
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Next page of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataServiceResponse'
     post:
       tags: [AIS Data Service]
-      summary: Fetch next page of data service results
-      operationId: dataServiceNextRecordV2
+      summary: Fetch next page of data service results (POST)
+      operationId: dataServiceNextRecordV2Post
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NextRecordRequest'
+      responses:
+        '200':
+          description: Next page of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataServiceResponse'
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — BUSINESS FUNCTION SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /v2/bsfnservice/discover:
+    post:
+      tags: [AIS Business Function Service]
+      summary: Discover details of a Business Function (v2)
+      description: Returns the input/output parameter definitions for a BSFN.
+      operationId: discoverBSFNV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BSFNDiscoverRequest'
+      responses:
+        '200':
+          description: BSFN details returned
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v2/bsfnservice:
+    post:
+      tags: [AIS Business Function Service]
+      summary: Execute an EnterpriseOne Business Function (v2)
+      description: Calls a BSFN with the supplied input parameters.
+      operationId: executeBSFNV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BSFNExecuteRequest'
+      responses:
+        '200':
+          description: BSFN executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Unauthorized
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — ORCHESTRATOR SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /orchestrator/{orchestration}:
+    get:
+      tags: [AIS Orchestrator Service]
+      summary: Execute an Orchestration (GET, v1)
+      operationId: executeOrchestrationV1Get
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchestration
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Orchestration result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      tags: [AIS Orchestrator Service]
+      summary: Execute an Orchestration (POST, v1)
+      operationId: executeOrchestrationV1Post
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchestration
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrchestrationRequest'
+      responses:
+        '200':
+          description: Orchestration result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v2/orchestrator/{orchestration}:
+    get:
+      tags: [AIS Orchestrator Service]
+      summary: Execute an Orchestration (GET, v2)
+      operationId: executeOrchestrationV2Get
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchestration
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Orchestration result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      tags: [AIS Orchestrator Service]
+      summary: Execute an Orchestration (POST, v2)
+      operationId: executeOrchestrationV2Post
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchestration
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrchestrationRequest'
+      responses:
+        '200':
+          description: Orchestration result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v3/orchestrator/{orchestration}:
+    get:
+      tags: [AIS Orchestrator Service]
+      summary: Execute an Orchestration (GET, v3)
+      operationId: executeOrchestrationV3Get
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchestration
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Orchestration result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      tags: [AIS Orchestrator Service]
+      summary: Execute an Orchestration (POST, v3)
+      operationId: executeOrchestrationV3Post
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchestration
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrchestrationRequest'
+      responses:
+        '200':
+          description: Orchestration result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ── Orchestrator Login/Logout/Validate ──────────────────────
+  /orchestrator/jde-login:
+    get:
+      tags: [AIS Orchestrator Service]
+      summary: Request a token for orchestrations (GET)
+      operationId: orchLoginV1Get
+      security:
+        - AISBasicAuth: []
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+    post:
+      tags: [AIS Orchestrator Service]
+      summary: Request a token for orchestrations (POST)
+      operationId: orchLoginV1Post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  /orchestrator/jde-logout:
+    get:
+      tags: [AIS Orchestrator Service]
+      summary: Logout orchestrator session (GET)
+      operationId: orchLogoutV1Get
+      security:
+        - AISTokenAuth: []
+      responses:
+        '200':
+          description: Session ended
+    post:
+      tags: [AIS Orchestrator Service]
+      summary: Logout orchestrator session (POST)
+      operationId: orchLogoutV1Post
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Session ended
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — ORCHESTRATION DISCOVERY
+  # ════════════════════════════════════════════════════════════
+
+  /discover:
+    get:
+      tags: [AIS Orchestration Discovery]
+      summary: List all available orchestrations
+      operationId: listOrchestrations
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      responses:
+        '200':
+          description: List of orchestrations
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /discover/{orchestration}:
+    get:
+      tags: [AIS Orchestration Discovery]
+      summary: Get orchestration details
+      operationId: getOrchestrationDetails
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchestration
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Orchestration details
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — MEDIA OBJECT SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /file/list:
+    post:
+      tags: [AIS Media Object Service]
+      summary: List attachments (v1)
+      operationId: fileListV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileListRequest'
+      responses:
+        '200':
+          description: Attachment list
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v2/file/list:
+    post:
+      tags: [AIS Media Object Service]
+      summary: List attachments (v2)
+      operationId: fileListV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileListRequest'
+      responses:
+        '200':
+          description: Attachment list
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /file/upload:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Upload file attachment (v1)
+      operationId: fileUploadV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: File uploaded
+
+  /v2/file/upload:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Upload file attachment (v2)
+      operationId: fileUploadV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: File uploaded
+
+  /file/download:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Download file attachment (v1)
+      operationId: fileDownloadV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: File content returned
+
+  /v2/file/download:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Download file attachment (v2)
+      operationId: fileDownloadV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: File content returned
+
+  /file/delete:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Delete an attachment (v1)
+      operationId: fileDeleteV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Attachment deleted
+
+  /v2/file/delete:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Delete an attachment (v2)
+      operationId: fileDeleteV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Attachment deleted
+
+  /file/gettext:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Get text attachment (v1)
+      operationId: fileGetTextV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Text attachment content
+
+  /v2/file/gettext:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Get text attachment (v2)
+      operationId: fileGetTextV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Text attachment content
+
+  /v2/file/addtext:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Add text attachment (v2)
+      operationId: fileAddTextV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Text attachment added
+
+  /file/updatetext:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Update text attachment (v1)
+      operationId: fileUpdateTextV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Text attachment updated
+
+  /v2/file/updatetext:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Update text attachment (v2)
+      operationId: fileUpdateTextV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Text attachment updated
+
+  /file/addurl:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Add URL attachment (v1)
+      operationId: fileAddUrlV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: URL attachment added
+
+  /v2/file/addurl:
+    post:
+      tags: [AIS Media Object Service]
+      summary: Add URL attachment (v2)
+      operationId: fileAddUrlV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: URL attachment added
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — WATCHLIST SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /watchlist:
+    post:
+      tags: [AIS Watchlist Service]
+      summary: Execute a watchlist (v1)
+      operationId: executeWatchlistV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WatchlistRequest'
+      responses:
+        '200':
+          description: Watchlist results
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v2/watchlist:
+    post:
+      tags: [AIS Watchlist Service]
+      summary: Execute a watchlist (v2)
+      operationId: executeWatchlistV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WatchlistRequest'
+      responses:
+        '200':
+          description: Watchlist results
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — JARGON SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /jargonservice:
+    post:
+      tags: [AIS Jargon Service]
+      summary: Fetch jargon and translations (v1)
+      operationId: jargonServiceV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JargonRequest'
+      responses:
+        '200':
+          description: Jargon data
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v2/jargonservice:
+    post:
+      tags: [AIS Jargon Service]
+      summary: Fetch jargon and translations (v2)
+      operationId: jargonServiceV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JargonRequest'
+      responses:
+        '200':
+          description: Jargon data
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — REPORT SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /v2/report/discover:
+    post:
+      tags: [AIS Report Service]
+      summary: Discover details of a report (v2)
+      operationId: discoverReportV2
       security:
         - AISTokenAuth: []
       requestBody:
@@ -1045,23 +2282,333 @@ paths:
               allOf:
                 - $ref: '#/components/schemas/AISBaseRequest'
                 - type: object
-                  required: [stackId, stateId, rid]
+                  required: [reportName]
                   properties:
-                    stackId:
-                      type: integer
-                    stateId:
-                      type: integer
-                    rid:
-                      type: string
-                    maxPageSize:
+                    reportName:
                       type: string
       responses:
         '200':
-          description: Next page of records
+          description: Report details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataServiceResponse'
+                type: object
+                additionalProperties: true
+
+  /v2/report/execute:
+    post:
+      tags: [AIS Report Service]
+      summary: Execute a report (v2)
+      operationId: executeReportV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportExecuteRequest'
+      responses:
+        '200':
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v2/report/status:
+    post:
+      tags: [AIS Report Service]
+      summary: Get report completion status (v2)
+      operationId: reportStatusV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportStatusRequest'
+      responses:
+        '200':
+          description: Report status
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — PROCESSING OPTION SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /poservice:
+    post:
+      tags: [AIS Processing Option Service]
+      summary: Get processing options (v1)
+      operationId: poServiceV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POServiceRequest'
+      responses:
+        '200':
+          description: Processing options
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v2/poservice:
+    post:
+      tags: [AIS Processing Option Service]
+      summary: Get processing options (v2)
+      operationId: poServiceV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POServiceRequest'
+      responses:
+        '200':
+          description: Processing options
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — PREFERENCE SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /preference:
+    post:
+      tags: [AIS Preference Service]
+      summary: Manage preferences (v1)
+      operationId: preferenceV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Preference result
+
+  /v2/preference:
+    post:
+      tags: [AIS Preference Service]
+      summary: Manage preferences (v2)
+      operationId: preferenceV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Preference result
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — TASK AUTHORIZATION SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /taskauthorization:
+    post:
+      tags: [AIS Task Authorization Service]
+      summary: Get menu tasks (v1)
+      operationId: taskAuthorizationV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Authorized tasks
+
+  /v2/taskauthorization:
+    post:
+      tags: [AIS Task Authorization Service]
+      summary: Get menu tasks (v2)
+      operationId: taskAuthorizationV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Authorized tasks
+
+  /v2/taskauthorization/search:
+    post:
+      tags: [AIS Task Authorization Service]
+      summary: Task search (v2)
+      operationId: taskSearchV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Search results
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — NOTIFICATION SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /v2/notification/discover:
+    post:
+      tags: [AIS Notification Service]
+      summary: List notifications (v2)
+      operationId: discoverNotificationsV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AISBaseRequest'
+      responses:
+        '200':
+          description: Notification list
+
+  /v2/notification/subscriptions:
+    post:
+      tags: [AIS Notification Service]
+      summary: Get notification subscriptions (v2)
+      operationId: notificationSubscriptionsV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AISBaseRequest'
+      responses:
+        '200':
+          description: Subscription list
+
+  /v2/notification/{notification}:
+    post:
+      tags: [AIS Notification Service]
+      summary: Execute a notification (v2)
+      operationId: executeNotificationV2
+      security:
+        - AISTokenAuth: []
+      parameters:
+        - name: notification
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AISBaseRequest'
+      responses:
+        '200':
+          description: Notification executed
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — MESSAGE SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /v2/message:
+    post:
+      tags: [AIS Message Service]
+      summary: Send messages (v2)
+      description: Sends an EnterpriseOne message (PPAT) to email or work center.
+      operationId: sendMessageV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Message sent
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — LOGGING SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /log:
+    post:
+      tags: [AIS Logging Service]
+      summary: Request logging (v1)
+      description: Writes a log entry in the AIS Server log.
+      operationId: logV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Log entry written
+
+  /v2/log:
+    post:
+      tags: [AIS Logging Service]
+      summary: Request logging (v2)
+      operationId: logV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Log entry written
 
   # ════════════════════════════════════════════════════════════
   # AIS — DEFAULT CONFIG SERVICE
@@ -1070,9 +2617,20 @@ paths:
   /defaultconfig:
     get:
       tags: [AIS Config Service]
-      summary: Get AIS server configuration (v1)
-      description: Returns the AIS server's default environment, capabilities, and version info.
-      operationId: getConfigV1
+      summary: Get AIS server configuration (v1, GET)
+      description: Returns the AIS server default environment, capabilities, and version info.
+      operationId: getConfigV1Get
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+    post:
+      tags: [AIS Config Service]
+      summary: Get AIS server configuration (v1, POST)
+      operationId: getConfigV1Post
       responses:
         '200':
           description: Configuration retrieved
@@ -1084,8 +2642,19 @@ paths:
   /v2/defaultconfig:
     get:
       tags: [AIS Config Service]
-      summary: Get AIS server configuration (v2)
-      operationId: getConfigV2
+      summary: Get AIS server configuration (v2, GET)
+      operationId: getConfigV2Get
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+    post:
+      tags: [AIS Config Service]
+      summary: Get AIS server configuration (v2, POST)
+      operationId: getConfigV2Post
       responses:
         '200':
           description: Configuration retrieved
@@ -1095,33 +2664,271 @@ paths:
                 $ref: '#/components/schemas/ConfigResponse'
 
   # ════════════════════════════════════════════════════════════
-  # AIS — ADMIN SERVICE
+  # AIS — EXTERNAL SERVICE
   # ════════════════════════════════════════════════════════════
 
-  /adminservice:
-    get:
-      tags: [AIS Admin Service]
-      summary: Clear AIS server cache (GET)
-      description: |
-        Clears AIS server caches. Requires valid EnterpriseOne credentials
-        via HTTP Basic Auth or query parameters.
-      operationId: adminServiceGet
-      security:
-        - BasicAuth: []
-      responses:
-        '200':
-          description: Cache cleared
-        '401':
-          description: Unauthorized
+  /v2/external/rest:
     post:
-      tags: [AIS Admin Service]
-      summary: Clear AIS server cache (POST)
-      operationId: adminServicePost
+      tags: [AIS External Service]
+      summary: Call external REST service (v2)
+      operationId: externalRestV2
       security:
-        - BasicAuth: []
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
       responses:
         '200':
-          description: Cache cleared
+          description: External service response
+
+  /v2/external/openapi:
+    post:
+      tags: [AIS External Service]
+      summary: Call external OpenAPI service (v2)
+      operationId: externalOpenApiV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: External service response
+
+  /v2/external/ftp/directory:
+    post:
+      tags: [AIS External Service]
+      summary: FTP directory listing (v2)
+      operationId: externalFtpDirectoryV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: FTP directory listing
+
+  /v2/external/ftp/report:
+    post:
+      tags: [AIS External Service]
+      summary: FTP report output (v2)
+      operationId: externalFtpReportV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Report sent via FTP
+
+  /v2/external/rest/report:
+    post:
+      tags: [AIS External Service]
+      summary: Send report to external REST service (v2)
+      operationId: externalRestReportV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Report sent
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — UTILITIES SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /v2/utils/getObjectList/{objectType}:
+    post:
+      tags: [AIS Utilities Service]
+      summary: Get a list of objects by type (v2)
+      operationId: getObjectListV2
+      security:
+        - AISTokenAuth: []
+      parameters:
+        - name: objectType
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AISBaseRequest'
+      responses:
+        '200':
+          description: Object list
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — UDO SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /udomanager/{operation}:
+    post:
+      tags: [AIS UDO Service]
+      summary: Get UDO details (v1)
+      operationId: udoManagerV1
+      security:
+        - AISTokenAuth: []
+      parameters:
+        - name: operation
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: UDO details
+
+  /v2/udomanager/{operation}:
+    post:
+      tags: [AIS UDO Service]
+      summary: Get UDO details (v2)
+      operationId: udoManagerV2
+      security:
+        - AISTokenAuth: []
+      parameters:
+        - name: operation
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: UDO details
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — OPENAPI CATALOG
+  # ════════════════════════════════════════════════════════════
+
+  /v2/open-api-catalog:
+    get:
+      tags: [AIS OpenAPI Catalog]
+      summary: Get all orchestrations (Swagger 2.0)
+      operationId: swaggerCatalogV2
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      responses:
+        '200':
+          description: Swagger 2.0 catalog
+
+  /v2/open-api-catalog/{orchName}:
+    get:
+      tags: [AIS OpenAPI Catalog]
+      summary: Get orchestration definition (Swagger 2.0)
+      operationId: swaggerOrchV2
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Swagger 2.0 definition
+
+  /v3/open-api-catalog3:
+    get:
+      tags: [AIS OpenAPI Catalog]
+      summary: Get all orchestrations (OpenAPI 3.0)
+      operationId: openapi3CatalogV3
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      responses:
+        '200':
+          description: OpenAPI 3.0 catalog
+
+  /v3/open-api-catalog3/{orchName}:
+    get:
+      tags: [AIS OpenAPI Catalog]
+      summary: Get orchestration definition (OpenAPI 3.0)
+      operationId: openapi3OrchV3
+      security:
+        - AISTokenAuth: []
+        - AISBasicAuth: []
+      parameters:
+        - name: orchName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OpenAPI 3.0 definition
+
+  # ════════════════════════════════════════════════════════════
+  # SERVER MANAGER — AUTHENTICATION
+  # ════════════════════════════════════════════════════════════
+
+  /authenticate:
+    post:
+      tags: [Server Manager Authentication]
+      summary: Authenticate to Server Manager
+      description: Authenticates using Server Manager Console credentials.
+      operationId: smAuthenticate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SMAuthRequest'
+            example:
+              username: jde_admin
+              password: password
+      responses:
+        '200':
+          description: Authenticated successfully
+        '401':
+          description: Invalid credentials
 
   # ════════════════════════════════════════════════════════════
   # SERVER MANAGER — INSTANCES
@@ -1406,6 +3213,26 @@ paths:
                 type: object
                 additionalProperties: true
 
+  /garbagecollection:
+    post:
+      tags: [Server Manager Monitoring]
+      summary: Execute garbage collection
+      description: Triggers JVM garbage collection and clears HEAP memory for the given instance.
+      operationId: runGarbageCollection
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GCRequest'
+      responses:
+        '200':
+          description: GC executed
+        '401':
+          description: Unauthorized
+
   # ════════════════════════════════════════════════════════════
   # SERVER MANAGER — LOGGING
   # ════════════════════════════════════════════════════════════
@@ -1521,23 +3348,3 @@ paths:
       responses:
         '200':
           description: Table cache cleared
-
-  /garbagecollection:
-    post:
-      tags: [Server Manager Monitoring]
-      summary: Execute garbage collection
-      description: Triggers JVM garbage collection and clears HEAP memory for the given instance.
-      operationId: runGarbageCollection
-      security:
-        - BasicAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GCRequest'
-      responses:
-        '200':
-          description: GC executed
-        '401':
-          description: Unauthorized
