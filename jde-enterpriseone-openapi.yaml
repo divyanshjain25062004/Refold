@@ -1,0 +1,1543 @@
+openapi: 3.0.3
+info:
+  title: Oracle JD Edwards EnterpriseOne REST API
+  description: |
+    OpenAPI 3.0 specification for Oracle JD Edwards EnterpriseOne 9.2.
+    Covers two API surfaces:
+    - **AIS (Application Interface Services) Server** – Authentication, Form Service,
+      Data/Table Query, Batch Form, App Stack, and Admin endpoints.
+    - **Server Manager** – Instance management, monitoring, log control, cache management,
+      and provisioning endpoints.
+
+    ### Base URLs
+    - AIS Server: `http://{ais-host}:{ais-port}/jderest`
+    - Server Manager: `https://{smc-host}:{smc-port}/manage/mgmtrestservice`
+
+    ### Authentication
+    AIS endpoints require a session token obtained via `/tokenrequest`.  
+    Server Manager endpoints use HTTP Basic Authentication.
+
+  version: "9.2"
+  contact:
+    name: Oracle JD Edwards Documentation
+    url: https://docs.oracle.com/en/applications/jd-edwards/cross-product/9.2/
+
+servers:
+  - url: http://{aisHost}:{aisPort}/jderest
+    description: AIS Server
+    variables:
+      aisHost:
+        default: localhost
+        description: AIS Server hostname
+      aisPort:
+        default: "8080"
+        description: AIS Server port
+  - url: https://{smcHost}:{smcPort}/manage/mgmtrestservice
+    description: Server Manager Console
+    variables:
+      smcHost:
+        default: jdesmc.example.com
+        description: Server Manager Console hostname
+      smcPort:
+        default: "8998"
+        description: Server Manager Console port
+
+tags:
+  - name: AIS Authentication
+    description: Token-based session management for AIS Server
+  - name: AIS Form Service
+    description: Execute EnterpriseOne interactive application forms
+  - name: AIS Batch Form Service
+    description: Execute multiple form requests in a single call
+  - name: AIS App Stack Service
+    description: Stateful form session management
+  - name: AIS Data Service
+    description: Query EnterpriseOne tables and business views
+  - name: AIS Config Service
+    description: Retrieve AIS server configuration
+  - name: AIS Admin Service
+    description: AIS server administration utilities
+  - name: Server Manager Instances
+    description: Manage JDE server instances
+  - name: Server Manager Monitoring
+    description: Monitor instance health, connections, and processes
+  - name: Server Manager Logging
+    description: Control log levels and retrieve log data
+  - name: Server Manager Cache
+    description: Manage database and table caches
+
+# ─────────────────────────────────────────────────────────────
+# SECURITY SCHEMES
+# ─────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    AISTokenAuth:
+      type: apiKey
+      in: header
+      name: jde_AIS_AUTH
+      description: Session token obtained from /tokenrequest. Pass in the request body as `token` field, or as the `jde_AIS_AUTH` header.
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic Auth used by Server Manager endpoints
+
+  # ─────────────────────────────────────────────────────────────
+  # REUSABLE SCHEMAS
+  # ─────────────────────────────────────────────────────────────
+  schemas:
+
+    # ── AIS Auth ──────────────────────────────────────────────
+    TokenRequest:
+      type: object
+      required: [username, password, deviceName]
+      properties:
+        username:
+          type: string
+          example: JDE
+        password:
+          type: string
+          format: password
+          example: JDE
+        deviceName:
+          type: string
+          description: Identifies the calling device or application
+          example: RefoldIntegration
+        environment:
+          type: string
+          description: JDE environment (e.g. JDV920, JPY920, JPD920)
+          example: JDV920
+        role:
+          type: string
+          description: JDE role (defaults to *ALL)
+          example: "*ALL"
+        requiredCapabilities:
+          type: array
+          items:
+            type: string
+          example: []
+
+    TokenResponse:
+      type: object
+      properties:
+        userInfo:
+          $ref: '#/components/schemas/UserInfo'
+        environment:
+          type: string
+          example: JDV920
+        role:
+          type: string
+          example: "*ALL"
+        token:
+          type: string
+          description: Session token — include in all subsequent AIS requests
+          example: "abcdef1234567890abcdef1234567890"
+        jasserver:
+          type: string
+          description: JAS server that issued the token
+        username:
+          type: string
+
+    UserInfo:
+      type: object
+      properties:
+        username:
+          type: string
+        addressNumber:
+          type: string
+        userLanguage:
+          type: string
+        userCountry:
+          type: string
+        userId:
+          type: string
+        environment:
+          type: string
+        role:
+          type: string
+
+    LogoutRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    # ── AIS Common ────────────────────────────────────────────
+    AISBaseRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: Session token from /tokenrequest
+        environment:
+          type: string
+          example: JDV920
+        role:
+          type: string
+          example: "*ALL"
+        deviceName:
+          type: string
+        returnControlIDs:
+          type: string
+          description: Comma-separated list of control IDs to return in response
+
+    FormServiceControl:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Control/field ID on the JDE form
+          example: "14"
+        value:
+          type: string
+          example: "1001"
+        specialRowHandle:
+          type: string
+
+    FormServiceAction:
+      type: object
+      properties:
+        controlID:
+          type: string
+        command:
+          type: string
+          enum:
+            - SetQBEValue
+            - DoAction
+            - SelectRow
+            - SelectAllRows
+            - DeselectRow
+            - InsertGridRow
+            - EditGridRow
+            - UpdateRow
+            - DeleteGridRow
+            - GridCellClick
+            - SetGridCellValue
+          example: SetQBEValue
+        value:
+          type: string
+
+    FormServiceRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [formName]
+          properties:
+            formName:
+              type: string
+              description: JDE form name (e.g. W0101A)
+              example: W0101A
+            version:
+              type: string
+              description: Processing option version
+              example: ZJDE0001
+            formInputs:
+              type: array
+              items:
+                $ref: '#/components/schemas/FormServiceControl'
+            formActions:
+              type: array
+              items:
+                $ref: '#/components/schemas/FormServiceAction'
+            findOnEntry:
+              type: boolean
+              default: true
+            maxPageSize:
+              type: string
+              description: Max number of grid rows to return
+              example: "100"
+            stopOnWarning:
+              type: boolean
+              default: false
+
+    FormServiceResponse:
+      type: object
+      properties:
+        currentApp:
+          type: string
+        title:
+          type: string
+        data:
+          type: object
+          properties:
+            gridData:
+              $ref: '#/components/schemas/GridData'
+            txtMessage:
+              type: string
+        stackId:
+          type: integer
+        stateId:
+          type: integer
+        rid:
+          type: string
+        sysErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/JDEError'
+
+    GridData:
+      type: object
+      properties:
+        gridRecords:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        summary:
+          type: object
+          properties:
+            records:
+              type: integer
+            moreRecords:
+              type: boolean
+
+    JDEError:
+      type: object
+      properties:
+        code:
+          type: string
+        desc:
+          type: string
+        errorOrigin:
+          type: string
+
+    # ── Batch Form Service ────────────────────────────────────
+    BatchFormRequest:
+      type: object
+      required: [token, requests]
+      properties:
+        token:
+          type: string
+        environment:
+          type: string
+        role:
+          type: string
+        requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormServiceRequest'
+
+    BatchFormResponse:
+      type: object
+      properties:
+        responses:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormServiceResponse'
+
+    # ── App Stack (Stateful) ──────────────────────────────────
+    AppStackRequest:
+      allOf:
+        - $ref: '#/components/schemas/FormServiceRequest'
+        - type: object
+          properties:
+            stackId:
+              type: integer
+              description: Stack ID from previous response (for subsequent calls)
+            stateId:
+              type: integer
+              description: State ID from previous response
+            rid:
+              type: string
+
+    # ── Data Service ──────────────────────────────────────────
+    TableQueryRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [targetName, targetType]
+          properties:
+            targetName:
+              type: string
+              description: Table or view name (e.g. F0101)
+              example: F0101
+            targetType:
+              type: string
+              enum: [table, view]
+              example: table
+            query:
+              $ref: '#/components/schemas/QueryCondition'
+            aggregation:
+              $ref: '#/components/schemas/Aggregation'
+            maxPageSize:
+              type: string
+              example: "500"
+            returnControlIDs:
+              type: string
+              description: Comma-separated column aliases to return
+              example: "AN8,ALPH,AT1"
+
+    SimpleTableQueryRequest:
+      allOf:
+        - $ref: '#/components/schemas/AISBaseRequest'
+        - type: object
+          required: [targetName]
+          properties:
+            targetName:
+              type: string
+              example: F0101
+            query:
+              $ref: '#/components/schemas/QueryCondition'
+            maxPageSize:
+              type: string
+              example: "100"
+
+    QueryCondition:
+      type: object
+      properties:
+        autoFind:
+          type: boolean
+          default: true
+        condition:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+
+    Condition:
+      type: object
+      properties:
+        controlId:
+          type: string
+          description: Column alias (e.g. AN8, DOCO)
+        operator:
+          type: string
+          enum: [EQUAL, NOT_EQUAL, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL, STR_START_WITH, STR_END_WITH, STR_CONTAIN, LIST, BETWEEN, BLANK, NOT_BLANK]
+          example: EQUAL
+        value:
+          type: array
+          items:
+            type: object
+            properties:
+              content:
+                type: string
+              specialValueId:
+                type: string
+                enum: [LITERAL, CURRENT_DATE, CURRENT_USER, ZERO_DATE, BLANK]
+                default: LITERAL
+
+    Aggregation:
+      type: object
+      properties:
+        orderBy:
+          type: array
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+              direction:
+                type: string
+                enum: [ASC, DESC]
+        groupBy:
+          type: array
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+
+    DataServiceResponse:
+      type: object
+      properties:
+        fs_DATABROWSE:
+          type: object
+          properties:
+            data:
+              type: object
+              properties:
+                gridData:
+                  $ref: '#/components/schemas/GridData'
+
+    # ── Config ────────────────────────────────────────────────
+    ConfigResponse:
+      type: object
+      properties:
+        jasServer:
+          type: string
+        aisVersion:
+          type: string
+        environment:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+
+    # ── Server Manager ────────────────────────────────────────
+    InstanceInfo:
+      type: object
+      properties:
+        instanceName:
+          type: string
+          example: tqa_923_lnx_jas
+        instanceType:
+          type: string
+          enum: [JAS, AIS, ENT, SM, ORCH, ADF]
+        agentHostName:
+          type: string
+        jdeHome:
+          type: string
+        status:
+          type: string
+          enum: [RUNNING, STOPPED, UNKNOWN, STARTING, STOPPING]
+        port:
+          type: integer
+
+    InstanceStateRequest:
+      type: object
+      required: [instanceName, agentHostName, jdeHome]
+      properties:
+        instanceName:
+          type: string
+        agentHostName:
+          type: string
+        jdeHome:
+          type: string
+
+    LogLevelRequest:
+      type: object
+      required: [instanceName, agentHostName, jdeHome, loggingLevel, logName]
+      properties:
+        instanceName:
+          type: string
+        agentHostName:
+          type: string
+        jdeHome:
+          type: string
+        loggingLevel:
+          type: string
+          enum: [APP, DEBUG, WARN, ERROR, FATAL]
+          example: APP
+        logName:
+          type: string
+          example: E1LOG
+
+    CacheClearRequest:
+      type: object
+      required: [instanceName, agentHostName, jdeHome, jdbjDatabaseCacheName]
+      properties:
+        instanceName:
+          type: string
+        agentHostName:
+          type: string
+        jdeHome:
+          type: string
+        jdbjDatabaseCacheName:
+          type: string
+          description: Cache name or ALL to clear all caches
+          example: ALL
+
+    GCRequest:
+      type: object
+      required: [instanceName, agentHostName, jdeHome]
+      properties:
+        instanceName:
+          type: string
+        agentHostName:
+          type: string
+        jdeHome:
+          type: string
+
+    ManagedHomeInfo:
+      type: object
+      properties:
+        managedHomeName:
+          type: string
+        agentHostName:
+          type: string
+        status:
+          type: string
+        requiresUpdate:
+          type: boolean
+
+    AgentInfo:
+      type: object
+      properties:
+        agentHostName:
+          type: string
+        agentPort:
+          type: integer
+        agentStatus:
+          type: string
+        agentVersion:
+          type: string
+
+    StandardError:
+      type: object
+      properties:
+        message:
+          type: string
+        errorCode:
+          type: integer
+        details:
+          type: string
+
+# ─────────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────────
+paths:
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — AUTHENTICATION
+  # ════════════════════════════════════════════════════════════
+
+  /tokenrequest:
+    post:
+      tags: [AIS Authentication]
+      summary: Request a session token
+      description: |
+        Authenticates an EnterpriseOne user and returns a session token.
+        The token must be included in all subsequent AIS requests.
+      operationId: requestToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+            example:
+              username: JDE
+              password: JDE
+              deviceName: RefoldIntegration
+              environment: JDV920
+              role: "*ALL"
+      responses:
+        '200':
+          description: Token issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+
+  /tokenrequest/v2:
+    post:
+      tags: [AIS Authentication]
+      summary: Request a session token (v2)
+      description: v2 variant — same behaviour as v1, adds extended capability negotiation.
+      operationId: requestTokenV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: Token issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+
+  /logout:
+    post:
+      tags: [AIS Authentication]
+      summary: End a session
+      description: Invalidates the session token.
+      operationId: logout
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Session ended successfully
+        '401':
+          description: Invalid or expired token
+
+  /v2/logout:
+    post:
+      tags: [AIS Authentication]
+      summary: End a session (v2)
+      operationId: logoutV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Session ended successfully
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — FORM SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /formservice:
+    post:
+      tags: [AIS Form Service]
+      summary: Execute a form (v1)
+      description: |
+        Opens an EnterpriseOne application form, optionally performs actions
+        (QBE, grid operations, button clicks), and returns form data.
+      operationId: executeFormV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FormServiceRequest'
+            example:
+              token: "abcdef1234567890"
+              environment: JDV920
+              formName: W0101A
+              findOnEntry: true
+              maxPageSize: "100"
+              formInputs:
+                - id: "6"
+                  value: "1001"
+              returnControlIDs: "1[0]|2[0]"
+      responses:
+        '200':
+          description: Form executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormServiceResponse'
+        '401':
+          description: Unauthorized
+        '500':
+          description: JDE application error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+
+  /v2/formservice:
+    post:
+      tags: [AIS Form Service]
+      summary: Execute a form (v2)
+      description: v2 form service — supports additional events and enhanced grid operations.
+      operationId: executeFormV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FormServiceRequest'
+      responses:
+        '200':
+          description: Form executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormServiceResponse'
+        '401':
+          description: Unauthorized
+
+  /v2/formservice/query:
+    post:
+      tags: [AIS Form Service]
+      summary: Simple form service query (v2)
+      description: Simplified form query — performs find and returns grid data without additional actions.
+      operationId: simpleFormQueryV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FormServiceRequest'
+      responses:
+        '200':
+          description: Query successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormServiceResponse'
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — BATCH FORM SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /batchformservice:
+    post:
+      tags: [AIS Batch Form Service]
+      summary: Execute multiple forms (v1)
+      description: |
+        Submits an array of form requests in a single HTTP call.
+        Each request is executed independently; all responses are returned together.
+      operationId: executeBatchFormV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchFormRequest'
+      responses:
+        '200':
+          description: All forms processed (check individual responses for errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchFormResponse'
+        '401':
+          description: Unauthorized
+
+  /v2/batchformservice:
+    post:
+      tags: [AIS Batch Form Service]
+      summary: Execute multiple forms (v2)
+      operationId: executeBatchFormV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchFormRequest'
+      responses:
+        '200':
+          description: All forms processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchFormResponse'
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — APP STACK (STATEFUL FORMS)
+  # ════════════════════════════════════════════════════════════
+
+  /appstack:
+    post:
+      tags: [AIS App Stack Service]
+      summary: Execute forms keeping state (v1)
+      description: |
+        Opens a stateful form session. The `stackId`, `stateId`, and `rid`
+        returned in the response must be passed on subsequent requests to
+        maintain session state (e.g. for multi-step form flows).
+      operationId: appStackV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppStackRequest'
+      responses:
+        '200':
+          description: Form state returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormServiceResponse'
+        '401':
+          description: Unauthorized
+
+  /v2/appstack:
+    post:
+      tags: [AIS App Stack Service]
+      summary: Execute forms keeping state (v2)
+      operationId: appStackV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppStackRequest'
+      responses:
+        '200':
+          description: Form state returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormServiceResponse'
+
+  /v2/appstack/nextrecord:
+    post:
+      tags: [AIS App Stack Service]
+      summary: Fetch next page of records in an app stack session
+      operationId: appStackNextRecordV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AISBaseRequest'
+                - type: object
+                  required: [stackId, stateId, rid]
+                  properties:
+                    stackId:
+                      type: integer
+                    stateId:
+                      type: integer
+                    rid:
+                      type: string
+                    maxPageSize:
+                      type: string
+      responses:
+        '200':
+          description: Next page of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormServiceResponse'
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — DATA SERVICE (TABLE / VIEW QUERIES)
+  # ════════════════════════════════════════════════════════════
+
+  /dataservice:
+    post:
+      tags: [AIS Data Service]
+      summary: Query or aggregate tables and views (v1)
+      description: |
+        Executes a query against an EnterpriseOne table or business view.
+        Supports filtering, column selection, sorting, grouping, and aggregation.
+      operationId: dataServiceQueryV1
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TableQueryRequest'
+            example:
+              token: "abcdef1234567890"
+              targetName: F0101
+              targetType: table
+              returnControlIDs: "AN8,ALPH,AT1,TAXC"
+              maxPageSize: "100"
+              query:
+                autoFind: true
+                condition:
+                  - controlId: AT1
+                    operator: EQUAL
+                    value:
+                      - content: "C"
+                        specialValueId: LITERAL
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataServiceResponse'
+        '401':
+          description: Unauthorized
+
+  /v2/dataservice:
+    post:
+      tags: [AIS Data Service]
+      summary: Query or aggregate tables and views (v2)
+      operationId: dataServiceQueryV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TableQueryRequest'
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataServiceResponse'
+
+  /v2/dataservice/table/{tableName}:
+    post:
+      tags: [AIS Data Service]
+      summary: Simple table query (v2)
+      description: Convenience endpoint for querying a named table without specifying targetType.
+      operationId: simpleTableQueryV2
+      security:
+        - AISTokenAuth: []
+      parameters:
+        - name: tableName
+          in: path
+          required: true
+          schema:
+            type: string
+          example: F0101
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleTableQueryRequest'
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataServiceResponse'
+
+  /v2/dataservice/view/{viewName}:
+    post:
+      tags: [AIS Data Service]
+      summary: Simple view query (v2)
+      description: Convenience endpoint for querying a named business view.
+      operationId: simpleViewQueryV2
+      security:
+        - AISTokenAuth: []
+      parameters:
+        - name: viewName
+          in: path
+          required: true
+          schema:
+            type: string
+          example: V0101A
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleTableQueryRequest'
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataServiceResponse'
+
+  /v2/dataservice/nextrecord:
+    post:
+      tags: [AIS Data Service]
+      summary: Fetch next page of data service results
+      operationId: dataServiceNextRecordV2
+      security:
+        - AISTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AISBaseRequest'
+                - type: object
+                  required: [stackId, stateId, rid]
+                  properties:
+                    stackId:
+                      type: integer
+                    stateId:
+                      type: integer
+                    rid:
+                      type: string
+                    maxPageSize:
+                      type: string
+      responses:
+        '200':
+          description: Next page of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataServiceResponse'
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — DEFAULT CONFIG SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /defaultconfig:
+    get:
+      tags: [AIS Config Service]
+      summary: Get AIS server configuration (v1)
+      description: Returns the AIS server's default environment, capabilities, and version info.
+      operationId: getConfigV1
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+
+  /v2/defaultconfig:
+    get:
+      tags: [AIS Config Service]
+      summary: Get AIS server configuration (v2)
+      operationId: getConfigV2
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+
+  # ════════════════════════════════════════════════════════════
+  # AIS — ADMIN SERVICE
+  # ════════════════════════════════════════════════════════════
+
+  /adminservice:
+    get:
+      tags: [AIS Admin Service]
+      summary: Clear AIS server cache (GET)
+      description: |
+        Clears AIS server caches. Requires valid EnterpriseOne credentials
+        via HTTP Basic Auth or query parameters.
+      operationId: adminServiceGet
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          description: Cache cleared
+        '401':
+          description: Unauthorized
+    post:
+      tags: [AIS Admin Service]
+      summary: Clear AIS server cache (POST)
+      operationId: adminServicePost
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          description: Cache cleared
+
+  # ════════════════════════════════════════════════════════════
+  # SERVER MANAGER — INSTANCES
+  # ════════════════════════════════════════════════════════════
+
+  /instanceinfo:
+    get:
+      tags: [Server Manager Instances]
+      summary: Get all managed instances
+      description: |
+        Returns information about all JDE server instances registered with
+        the Server Manager Console. Returns `unknown` state for instances
+        under offline agents.
+      operationId: getAllInstances
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          description: List of instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InstanceInfo'
+        '401':
+          description: Unauthorized
+
+  /instancestate:
+    get:
+      tags: [Server Manager Instances]
+      summary: Get instance state
+      description: Returns the current running state of a specific JDE instance.
+      operationId: getInstanceState
+      security:
+        - BasicAuth: []
+      parameters:
+        - name: instanceName
+          in: query
+          required: true
+          schema:
+            type: string
+          example: tqa_923_lnx_jas
+        - name: agentHostName
+          in: query
+          required: true
+          schema:
+            type: string
+          example: jdesma.example.com
+        - name: jdeHome
+          in: query
+          required: true
+          schema:
+            type: string
+          example: /u01/jde_home
+      responses:
+        '200':
+          description: Instance state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceInfo'
+        '404':
+          description: Instance not found
+
+  /startinstance:
+    post:
+      tags: [Server Manager Instances]
+      summary: Start a JDE instance
+      operationId: startInstance
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceStateRequest'
+      responses:
+        '200':
+          description: Instance start initiated
+        '409':
+          description: Instance already running
+
+  /stopinstance:
+    post:
+      tags: [Server Manager Instances]
+      summary: Stop a JDE instance
+      operationId: stopInstance
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceStateRequest'
+      responses:
+        '200':
+          description: Instance stop initiated
+        '409':
+          description: Instance already stopped
+
+  /restartinstance:
+    post:
+      tags: [Server Manager Instances]
+      summary: Restart a JDE instance
+      operationId: restartInstance
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceStateRequest'
+      responses:
+        '200':
+          description: Instance restart initiated
+
+  # ════════════════════════════════════════════════════════════
+  # SERVER MANAGER — MONITORING
+  # ════════════════════════════════════════════════════════════
+
+  /managedhomes:
+    get:
+      tags: [Server Manager Monitoring]
+      summary: Get all managed homes
+      description: Retrieves information about all Managed Homes registered with the Server Manager Console.
+      operationId: getManagedHomes
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          description: List of managed homes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ManagedHomeInfo'
+
+  /managedhomestatus:
+    get:
+      tags: [Server Manager Monitoring]
+      summary: Get managed home update status
+      description: Returns status of Managed Homes and indicates which require updates.
+      operationId: getManagedHomeStatus
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          description: Managed home status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ManagedHomeInfo'
+
+  /agentinfo:
+    get:
+      tags: [Server Manager Monitoring]
+      summary: Get agent information
+      description: Returns details about a specific Server Manager Agent.
+      operationId: getAgentInfo
+      security:
+        - BasicAuth: []
+      parameters:
+        - name: agentHostName
+          in: query
+          required: true
+          schema:
+            type: string
+          example: jdesma.example.com
+      responses:
+        '200':
+          description: Agent information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentInfo'
+
+  /enterpriseserverinfo:
+    get:
+      tags: [Server Manager Monitoring]
+      summary: Get Enterprise Server instance information
+      description: Returns instance information for the Enterprise Server.
+      operationId: getEnterpriseServerInfo
+      security:
+        - BasicAuth: []
+      parameters:
+        - name: instanceName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: agentHostName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: jdeHome
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Enterprise Server info
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /enterpriseserverprocessinfo:
+    get:
+      tags: [Server Manager Monitoring]
+      summary: Get Enterprise Server process details
+      description: |
+        Returns detailed information about all processes on the Enterprise Server.
+        Connected users are shown for Call Object and Security Kernel processes only.
+      operationId: getEnterpriseServerProcessInfo
+      security:
+        - BasicAuth: []
+      parameters:
+        - name: instanceName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: agentHostName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: jdeHome
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Process details
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /jdbjconnections:
+    get:
+      tags: [Server Manager Monitoring]
+      summary: Get JDBj pooled database connections
+      description: Displays details of JDBj Pooled Database connections for an HTML/AIS server instance.
+      operationId: getJDBjConnections
+      security:
+        - BasicAuth: []
+      parameters:
+        - name: instanceName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: agentHostName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: jdeHome
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: JDBj connection pool info
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ════════════════════════════════════════════════════════════
+  # SERVER MANAGER — LOGGING
+  # ════════════════════════════════════════════════════════════
+
+  /updateloglevel:
+    post:
+      tags: [Server Manager Logging]
+      summary: Update log level for an instance
+      description: |
+        Changes the logging level for the specified instance. Also triggers
+        log synchronization for JAS, AIS, Orchestrator, and ADF instances.
+      operationId: updateLogLevel
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogLevelRequest'
+            example:
+              instanceName: tqa_923_lnx_jas
+              agentHostName: jdesma.example.com
+              jdeHome: /u01/jde_home
+              loggingLevel: APP
+              logName: E1LOG
+      responses:
+        '200':
+          description: Log level updated
+        '400':
+          description: Invalid log level or missing parameters
+        '401':
+          description: Unauthorized
+
+  # ════════════════════════════════════════════════════════════
+  # SERVER MANAGER — CACHE
+  # ════════════════════════════════════════════════════════════
+
+  /clearjdbjcache:
+    post:
+      tags: [Server Manager Cache]
+      summary: Clear JDBj database caches
+      description: |
+        Clears the JDBj Database caches for the specified HTML or AIS instance.
+        Use `jdbjDatabaseCacheName: ALL` to clear all caches at once.
+      operationId: clearJDBjCache
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CacheClearRequest'
+            example:
+              instanceName: tqa_923_lnx_jas
+              agentHostName: jdesma.example.com
+              jdeHome: /u01/jde_home
+              jdbjDatabaseCacheName: ALL
+      responses:
+        '200':
+          description: Cache cleared
+        '401':
+          description: Unauthorized
+
+  /getjdbjcache:
+    get:
+      tags: [Server Manager Cache]
+      summary: Get JDBj database caches
+      description: Displays JDBj Database caches for a given HTML instance.
+      operationId: getJDBjCache
+      security:
+        - BasicAuth: []
+      parameters:
+        - name: instanceName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: agentHostName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: jdeHome
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cache details
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /cleartablecache:
+    post:
+      tags: [Server Manager Cache]
+      summary: Clear table cache on Enterprise Server
+      description: Clears the table cache for the Enterprise Server.
+      operationId: clearTableCache
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceStateRequest'
+      responses:
+        '200':
+          description: Table cache cleared
+
+  /garbagecollection:
+    post:
+      tags: [Server Manager Monitoring]
+      summary: Execute garbage collection
+      description: Triggers JVM garbage collection and clears HEAP memory for the given instance.
+      operationId: runGarbageCollection
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GCRequest'
+      responses:
+        '200':
+          description: GC executed
+        '401':
+          description: Unauthorized
