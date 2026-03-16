@@ -1,0 +1,2077 @@
+openapi: 3.0.3
+info:
+  title: Plaid API
+  version: "2020-09-14"
+  description: |
+    The Plaid API provides programmatic access to financial data and services.
+    All requests are POST with JSON bodies. Authentication is via `client_id` and `secret`,
+    supplied either in the request body or via `PLAID-CLIENT-ID` and `PLAID-SECRET` headers.
+    Every response includes a `request_id` for troubleshooting.
+
+    **Environments:**
+    - Sandbox: `https://sandbox.plaid.com`
+    - Production: `https://production.plaid.com`
+  contact:
+    name: Plaid Developer Support
+    url: https://plaid.com/docs/
+  license:
+    name: Plaid API Terms of Service
+    url: https://plaid.com/legal/
+
+servers:
+  - url: https://sandbox.plaid.com
+    description: Sandbox (test environment)
+  - url: https://production.plaid.com
+    description: Production
+
+security:
+  - PlaidClientId: []
+    PlaidSecret: []
+
+tags:
+  - name: Link
+    description: Generate Link tokens to initialize Plaid Link
+  - name: Items
+    description: Manage Items (connections to financial institutions)
+  - name: Accounts
+    description: Retrieve account data
+  - name: Transactions
+    description: Retrieve and sync transaction history
+  - name: Auth
+    description: Retrieve bank account and routing numbers
+  - name: Identity
+    description: Retrieve identity and owner information
+  - name: Institutions
+    description: Search and retrieve institution metadata
+  - name: Sandbox
+    description: Sandbox-only endpoints for testing
+
+# ─────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────
+paths:
+
+  # ── LINK ─────────────────────────────────────────────
+  /link/token/create:
+    post:
+      tags: [Link]
+      operationId: linkTokenCreate
+      summary: Create a Link token
+      description: |
+        Creates a `link_token`, a short-lived token used to initialize Plaid Link.
+        The token expires after 4 hours. Pass the token to the Plaid Link client-side SDK.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkTokenCreateRequest'
+      responses:
+        '200':
+          description: Link token created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkTokenCreateResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /link/token/get:
+    post:
+      tags: [Link]
+      operationId: linkTokenGet
+      summary: Get a Link token
+      description: Retrieve metadata about a previously created `link_token`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - type: object
+                  required: [link_token]
+                  properties:
+                    link_token:
+                      type: string
+                      description: The `link_token` to retrieve.
+      responses:
+        '200':
+          description: Link token metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkTokenGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  # ── ITEMS ─────────────────────────────────────────────
+  /item/get:
+    post:
+      tags: [Items]
+      operationId: itemGet
+      summary: Retrieve an Item
+      description: Returns metadata and status about an Item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+      responses:
+        '200':
+          description: Item data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /item/remove:
+    post:
+      tags: [Items]
+      operationId: itemRemove
+      summary: Remove an Item
+      description: |
+        Removes an Item. Access tokens associated with the Item are invalidated.
+        The Item is not recoverable once removed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+      responses:
+        '200':
+          description: Item removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemRemoveResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /item/webhook/update:
+    post:
+      tags: [Items]
+      operationId: itemWebhookUpdate
+      summary: Update a webhook URL
+      description: Updates the webhook URL for an Item. The new URL must be HTTPS.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+                - type: object
+                  required: [webhook]
+                  properties:
+                    webhook:
+                      type: string
+                      format: uri
+                      description: The new webhook URL to associate with the Item.
+      responses:
+        '200':
+          description: Webhook URL updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemWebhookUpdateResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /item/public_token/exchange:
+    post:
+      tags: [Items]
+      operationId: itemPublicTokenExchange
+      summary: Exchange a public token for an access token
+      description: |
+        Exchange the short-lived `public_token` returned by Plaid Link for a long-lived
+        `access_token`. The `access_token` is required for all subsequent API calls on
+        that Item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - type: object
+                  required: [public_token]
+                  properties:
+                    public_token:
+                      type: string
+                      description: The `public_token` returned from Plaid Link's `onSuccess` callback.
+      responses:
+        '200':
+          description: Access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemPublicTokenExchangeResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /item/access_token/invalidate:
+    post:
+      tags: [Items]
+      operationId: itemAccessTokenInvalidate
+      summary: Rotate an access token
+      description: |
+        Rotates the access token associated with an Item. Returns a new access token;
+        the old token is immediately invalidated. The Item itself is not deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+      responses:
+        '200':
+          description: New access token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  new_access_token:
+                    type: string
+                    description: The newly rotated access token.
+                  request_id:
+                    $ref: '#/components/schemas/RequestId'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  # ── ACCOUNTS ──────────────────────────────────────────
+  /accounts/get:
+    post:
+      tags: [Accounts]
+      operationId: accountsGet
+      summary: Retrieve accounts
+      description: Returns account metadata for all accounts linked to an Item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+                - type: object
+                  properties:
+                    options:
+                      type: object
+                      properties:
+                        account_ids:
+                          type: array
+                          items:
+                            type: string
+                          description: Filter results to specific account IDs.
+      responses:
+        '200':
+          description: Account list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountsGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /accounts/balance/get:
+    post:
+      tags: [Accounts]
+      operationId: accountsBalanceGet
+      summary: Retrieve real-time balances
+      description: |
+        Returns real-time balance data for each of an Item's accounts.
+        Balance data is fetched live from the institution; this call may be slow.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+                - type: object
+                  properties:
+                    options:
+                      type: object
+                      properties:
+                        account_ids:
+                          type: array
+                          items:
+                            type: string
+                          description: Filter to specific account IDs.
+                        min_last_updated_datetime:
+                          type: string
+                          format: date-time
+                          description: |
+                            Returns an error if cached balance data is older than this timestamp.
+      responses:
+        '200':
+          description: Real-time balances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountsGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  # ── TRANSACTIONS ──────────────────────────────────────
+  /transactions/sync:
+    post:
+      tags: [Transactions]
+      operationId: transactionsSync
+      summary: Sync incremental transaction updates
+      description: |
+        Retrieves added, modified, and removed transactions using a cursor for
+        incremental updates. Omit `cursor` on first call to get full history.
+        Supported account types: `credit`, `depository`, and `student` loan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionsSyncRequest'
+      responses:
+        '200':
+          description: Incremental transaction updates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsSyncResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /transactions/get:
+    post:
+      tags: [Transactions]
+      operationId: transactionsGet
+      summary: Fetch transactions by date range
+      description: |
+        Returns transactions for an Item within a date range (up to 24 months).
+        Results are paginated. Prefer `/transactions/sync` for new integrations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionsGetRequest'
+      responses:
+        '200':
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /transactions/refresh:
+    post:
+      tags: [Transactions]
+      operationId: transactionsRefresh
+      summary: Force a transaction refresh
+      description: |
+        Requests an immediate refresh of transaction data from the institution.
+        Fires a `SYNC_UPDATES_AVAILABLE` webhook when new data is ready.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+      responses:
+        '200':
+          description: Refresh initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    $ref: '#/components/schemas/RequestId'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /transactions/recurring/get:
+    post:
+      tags: [Transactions]
+      operationId: transactionsRecurringGet
+      summary: Fetch recurring transaction streams
+      description: |
+        Returns recurring transaction streams (e.g. subscriptions, salary, rent)
+        identified from the Item's transaction history.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+                - type: object
+                  properties:
+                    account_ids:
+                      type: array
+                      items:
+                        type: string
+                      description: Filter to specific account IDs.
+                    options:
+                      type: object
+                      properties:
+                        include_personal_finance_category:
+                          type: boolean
+                          default: false
+      responses:
+        '200':
+          description: Recurring transaction streams
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsRecurringGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /categories/get:
+    post:
+      tags: [Transactions]
+      operationId: categoriesGet
+      summary: Fetch all transaction categories
+      description: Returns the full Plaid transaction category taxonomy. No auth required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Empty request body.
+      responses:
+        '200':
+          description: Category list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+                  request_id:
+                    $ref: '#/components/schemas/RequestId'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  # ── AUTH ──────────────────────────────────────────────
+  /auth/get:
+    post:
+      tags: [Auth]
+      operationId: authGet
+      summary: Retrieve bank account and routing numbers
+      description: |
+        Returns ACH or EFT account and routing numbers for checking and savings accounts.
+        Requires the `auth` product to be enabled on the Item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+                - type: object
+                  properties:
+                    options:
+                      type: object
+                      properties:
+                        account_ids:
+                          type: array
+                          items:
+                            type: string
+      responses:
+        '200':
+          description: Account and routing numbers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  # ── IDENTITY ──────────────────────────────────────────
+  /identity/get:
+    post:
+      tags: [Identity]
+      operationId: identityGet
+      summary: Retrieve identity data
+      description: |
+        Returns the legal names, phone numbers, email addresses, and mailing addresses
+        on file at the financial institution for account owners.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+                - type: object
+                  properties:
+                    options:
+                      type: object
+                      properties:
+                        account_ids:
+                          type: array
+                          items:
+                            type: string
+      responses:
+        '200':
+          description: Identity data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  # ── INSTITUTIONS ──────────────────────────────────────
+  /institutions/get:
+    post:
+      tags: [Institutions]
+      operationId: institutionsGet
+      summary: List institutions
+      description: Returns a paginated list of all financial institutions supported by Plaid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - type: object
+                  required: [count, offset, country_codes]
+                  properties:
+                    count:
+                      type: integer
+                      minimum: 1
+                      maximum: 500
+                      description: Number of institutions to return.
+                    offset:
+                      type: integer
+                      minimum: 0
+                      description: Offset for pagination.
+                    country_codes:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/CountryCode'
+                    options:
+                      $ref: '#/components/schemas/InstitutionsGetRequestOptions'
+      responses:
+        '200':
+          description: Institution list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionsGetResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /institutions/search:
+    post:
+      tags: [Institutions]
+      operationId: institutionsSearch
+      summary: Search institutions
+      description: Returns institutions matching a query string, optionally filtered by products and country.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - type: object
+                  required: [query, country_codes]
+                  properties:
+                    query:
+                      type: string
+                      description: The search query string.
+                    products:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Products'
+                      description: Filter to institutions supporting specific products.
+                    country_codes:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/CountryCode'
+                    options:
+                      $ref: '#/components/schemas/InstitutionsGetRequestOptions'
+      responses:
+        '200':
+          description: Matching institutions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionsSearchResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /institutions/get_by_id:
+    post:
+      tags: [Institutions]
+      operationId: institutionsGetById
+      summary: Get an institution by ID
+      description: Returns detailed metadata for a single institution.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - type: object
+                  required: [institution_id, country_codes]
+                  properties:
+                    institution_id:
+                      type: string
+                      description: The institution's unique Plaid ID (e.g. `ins_3`).
+                    country_codes:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/CountryCode'
+                    options:
+                      $ref: '#/components/schemas/InstitutionsGetRequestOptions'
+      responses:
+        '200':
+          description: Institution data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionsGetByIdResponse'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  # ── SANDBOX ───────────────────────────────────────────
+  /sandbox/public_token/create:
+    post:
+      tags: [Sandbox]
+      operationId: sandboxPublicTokenCreate
+      summary: Create a test Item (Sandbox only)
+      description: |
+        Creates a `public_token` for a test Sandbox Item without going through Plaid Link.
+        Useful for automated testing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - type: object
+                  required: [institution_id, initial_products]
+                  properties:
+                    institution_id:
+                      type: string
+                      description: The Sandbox institution ID (e.g. `ins_109508`).
+                    initial_products:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Products'
+                    options:
+                      type: object
+                      properties:
+                        webhook:
+                          type: string
+                          format: uri
+                        override_username:
+                          type: string
+                          default: user_good
+                        override_password:
+                          type: string
+                          default: pass_good
+                        transactions:
+                          type: object
+                          properties:
+                            start_date:
+                              type: string
+                              format: date
+                            end_date:
+                              type: string
+                              format: date
+      responses:
+        '200':
+          description: Sandbox public token created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  public_token:
+                    type: string
+                  request_id:
+                    $ref: '#/components/schemas/RequestId'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /sandbox/item/reset_login:
+    post:
+      tags: [Sandbox]
+      operationId: sandboxItemResetLogin
+      summary: Force Item into an error state (Sandbox only)
+      description: |
+        Resets the login for a Sandbox Item to force it into an `ITEM_LOGIN_REQUIRED`
+        error state for testing re-authentication flows.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+      responses:
+        '200':
+          description: Login reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reset_login:
+                    type: boolean
+                  request_id:
+                    $ref: '#/components/schemas/RequestId'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+  /sandbox/item/fire_webhook:
+    post:
+      tags: [Sandbox]
+      operationId: sandboxItemFireWebhook
+      summary: Fire a test webhook (Sandbox only)
+      description: Manually fires a test webhook for a Sandbox Item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/AccessTokenField'
+                - type: object
+                  required: [webhook_code]
+                  properties:
+                    webhook_code:
+                      type: string
+                      enum:
+                        - DEFAULT_UPDATE
+                        - NEW_ACCOUNTS_AVAILABLE
+                        - HISTORICAL_UPDATE
+                        - INITIAL_UPDATE
+                        - SYNC_UPDATES_AVAILABLE
+                      description: The webhook event to fire.
+      responses:
+        '200':
+          description: Webhook fired
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhook_fired:
+                    type: boolean
+                  request_id:
+                    $ref: '#/components/schemas/RequestId'
+        default:
+          $ref: '#/components/responses/PlaidError'
+
+# ─────────────────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────────────────
+components:
+
+  securitySchemes:
+    PlaidClientId:
+      type: apiKey
+      in: header
+      name: PLAID-CLIENT-ID
+      description: Your Plaid `client_id`. Also accepted in the request body.
+    PlaidSecret:
+      type: apiKey
+      in: header
+      name: PLAID-SECRET
+      description: Your Plaid `secret`. Also accepted in the request body.
+
+  responses:
+    PlaidError:
+      description: Plaid API error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlaidError'
+
+  schemas:
+
+    # ── COMMON FIELDS ─────────────────────────────────
+    AuthFields:
+      type: object
+      properties:
+        client_id:
+          type: string
+          description: Your Plaid API `client_id`. May also be sent as the `PLAID-CLIENT-ID` header.
+        secret:
+          type: string
+          description: Your Plaid API `secret`. May also be sent as the `PLAID-SECRET` header.
+
+    AccessTokenField:
+      type: object
+      required: [access_token]
+      properties:
+        access_token:
+          type: string
+          description: The access token associated with the Item.
+
+    RequestId:
+      type: string
+      description: A unique ID for the request, useful for troubleshooting with Plaid support.
+
+    # ── ERRORS ────────────────────────────────────────
+    PlaidError:
+      type: object
+      properties:
+        error_type:
+          type: string
+          description: Broad error category.
+          enum:
+            - INVALID_REQUEST
+            - INVALID_RESULT
+            - INVALID_INPUT
+            - INSTITUTION_ERROR
+            - RATE_LIMIT_EXCEEDED
+            - API_ERROR
+            - ITEM_ERROR
+            - ASSET_REPORT_ERROR
+            - RECAPTCHA_ERROR
+            - OAUTH_ERROR
+            - PAYMENT_ERROR
+            - BANK_TRANSFER_ERROR
+            - INCOME_VERIFICATION_ERROR
+            - MICRODEPOSITS_ERROR
+            - SANDBOX_ERROR
+            - PARTNER_ERROR
+            - SIGNAL_ERROR
+            - TRANSACTIONS_ERROR
+            - TRANSFER_ERROR
+            - CHECK_REPORT_ERROR
+            - CONSUMER_REPORT_ERROR
+            - USER_ERROR
+        error_code:
+          type: string
+          description: The specific error code. Safe for programmatic use.
+        error_code_reason:
+          type: string
+          nullable: true
+          description: Additional reason for OAuth-related errors.
+        error_message:
+          type: string
+          description: Developer-friendly error description. Not safe for programmatic use.
+        display_message:
+          type: string
+          nullable: true
+          description: User-facing error message, or null if not user-actionable.
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+        causes:
+          type: array
+          items:
+            type: object
+          description: Per-Item error breakdown for multi-Item requests.
+        status:
+          type: integer
+          nullable: true
+          description: HTTP status code (only present in webhook-delivered errors).
+        documentation_url:
+          type: string
+          format: uri
+        suggested_action:
+          type: string
+          nullable: true
+
+    # ── ENUMS ─────────────────────────────────────────
+    Products:
+      type: string
+      enum:
+        - assets
+        - auth
+        - balance
+        - employment
+        - identity
+        - identity_verification
+        - income_verification
+        - investments
+        - liabilities
+        - payment_initiation
+        - signal
+        - standing_orders
+        - statements
+        - transactions
+        - transfer
+
+    CountryCode:
+      type: string
+      enum: [US, GB, ES, NL, FR, IE, CA, DE, IT, PL, DK, NO, SE, EE, LT, LV, PT, BE]
+
+    AccountType:
+      type: string
+      enum: [investment, credit, depository, loan, brokerage, other]
+
+    AccountSubtype:
+      type: string
+      nullable: true
+      enum:
+        - 401a
+        - 401k
+        - 403B
+        - 457b
+        - 529
+        - auto
+        - brokerage
+        - business
+        - cash isa
+        - cash management
+        - cd
+        - checking
+        - commercial
+        - construction
+        - consumer
+        - credit card
+        - crypto exchange
+        - ebt
+        - education savings account
+        - fixed annuity
+        - gic
+        - health reimbursement arrangement
+        - home equity
+        - hsa
+        - isa
+        - ira
+        - keogh
+        - lif
+        - life insurance
+        - line of credit
+        - lira
+        - loan
+        - lrif
+        - lrsp
+        - money market
+        - mortgage
+        - mutual fund
+        - non-custodial wallet
+        - non-taxable brokerage account
+        - other
+        - other insurance
+        - other annuity
+        - overdraft
+        - paypal
+        - payroll
+        - pension
+        - prepaid
+        - prif
+        - profit sharing plan
+        - rdsp
+        - resp
+        - retirement
+        - rlif
+        - roth
+        - roth 401k
+        - rrif
+        - rrsp
+        - sarsep
+        - savings
+        - sep ira
+        - simple ira
+        - sipp
+        - stock plan
+        - student
+        - thrift savings plan
+        - tfsa
+        - trust
+        - ugma
+        - utma
+        - variable annuity
+        - null
+
+    # ── ACCOUNT ───────────────────────────────────────
+    Account:
+      type: object
+      properties:
+        account_id:
+          type: string
+          description: Plaid's unique identifier for the account.
+        balances:
+          $ref: '#/components/schemas/AccountBalance'
+        mask:
+          type: string
+          nullable: true
+          description: The last 2–4 digits of the account number.
+        name:
+          type: string
+          description: The name of the account, as given by the institution.
+        official_name:
+          type: string
+          nullable: true
+          description: The official name of the account as given by the financial institution.
+        type:
+          $ref: '#/components/schemas/AccountType'
+        subtype:
+          $ref: '#/components/schemas/AccountSubtype'
+        verification_status:
+          type: string
+          nullable: true
+          enum:
+            - automatically_verified
+            - pending_automatic_verification
+            - pending_manual_verification
+            - manually_verified
+            - verification_expired
+            - verification_failed
+            - database_matched
+            - database_insights_pass
+            - database_insights_pass_with_caution
+            - database_insights_fail
+        persistent_account_id:
+          type: string
+          nullable: true
+          description: A stable, permanent identifier for the account that persists even if `account_id` changes.
+
+    AccountBalance:
+      type: object
+      properties:
+        available:
+          type: number
+          nullable: true
+          description: |
+            Funds available for immediate use. For credit accounts: credit limit minus current balance.
+            For depository accounts: balance minus pending outflows.
+        current:
+          type: number
+          nullable: true
+          description: Total balance including pending transactions.
+        limit:
+          type: number
+          nullable: true
+          description: Credit limit (credit accounts only).
+        iso_currency_code:
+          type: string
+          nullable: true
+          description: ISO 4217 currency code of the balance (e.g. `USD`).
+        unofficial_currency_code:
+          type: string
+          nullable: true
+          description: Unofficial currency code for currencies not in ISO 4217.
+        last_updated_datetime:
+          type: string
+          format: date-time
+          nullable: true
+
+    # ── ITEM ──────────────────────────────────────────
+    Item:
+      type: object
+      properties:
+        item_id:
+          type: string
+          description: Plaid's unique identifier for the Item.
+        institution_id:
+          type: string
+          nullable: true
+        institution_name:
+          type: string
+          nullable: true
+        webhook:
+          type: string
+          nullable: true
+          format: uri
+        auth_method:
+          type: string
+          nullable: true
+          enum:
+            - INSTANT_AUTH
+            - INSTANT_MATCH
+            - AUTOMATED_MICRODEPOSITS
+            - SAME_DAY_MICRODEPOSITS
+            - INSTANT_MICRODEPOSITS
+            - DATABASE_MATCH
+            - DATABASE_INSIGHTS
+            - TRANSFER_MIGRATED
+            - INVESTMENTS_FALLBACK
+        error:
+          $ref: '#/components/schemas/PlaidError'
+        available_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        billed_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        consented_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        consent_expiration_time:
+          type: string
+          format: date-time
+          nullable: true
+        update_type:
+          type: string
+          enum: [background, user_present_required]
+        status:
+          type: object
+          nullable: true
+          properties:
+            investments:
+              type: object
+              nullable: true
+              properties:
+                last_successful_update:
+                  type: string
+                  format: date-time
+                  nullable: true
+                last_failed_update:
+                  type: string
+                  format: date-time
+                  nullable: true
+            transactions:
+              type: object
+              nullable: true
+              properties:
+                last_successful_update:
+                  type: string
+                  format: date-time
+                  nullable: true
+                last_failed_update:
+                  type: string
+                  format: date-time
+                  nullable: true
+
+    # ── TRANSACTION ───────────────────────────────────
+    Transaction:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+        account_id:
+          type: string
+        amount:
+          type: number
+          description: |
+            Positive = money leaving the account (debit). Negative = money entering (credit).
+        iso_currency_code:
+          type: string
+          nullable: true
+        unofficial_currency_code:
+          type: string
+          nullable: true
+        date:
+          type: string
+          format: date
+          description: Posted date (YYYY-MM-DD).
+        authorized_date:
+          type: string
+          format: date
+          nullable: true
+          description: Date the transaction was authorized.
+        authorized_datetime:
+          type: string
+          format: date-time
+          nullable: true
+        datetime:
+          type: string
+          format: date-time
+          nullable: true
+        name:
+          type: string
+          description: Merchant or transaction name.
+        merchant_name:
+          type: string
+          nullable: true
+        merchant_entity_id:
+          type: string
+          nullable: true
+          description: A stable ID for the merchant that persists across transactions.
+        original_description:
+          type: string
+          nullable: true
+          description: Raw unparsed description from the institution (if requested).
+        category:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Hierarchical category list (legacy; prefer `personal_finance_category`).
+        category_id:
+          type: string
+          nullable: true
+        personal_finance_category:
+          type: object
+          nullable: true
+          properties:
+            primary:
+              type: string
+            detailed:
+              type: string
+            confidence_level:
+              type: string
+              enum: [VERY_HIGH, HIGH, MEDIUM, LOW, UNKNOWN]
+        personal_finance_category_icon_url:
+          type: string
+          nullable: true
+          format: uri
+        location:
+          $ref: '#/components/schemas/TransactionLocation'
+        payment_meta:
+          $ref: '#/components/schemas/PaymentMeta'
+        account_owner:
+          type: string
+          nullable: true
+        pending:
+          type: boolean
+          description: True if the transaction has not yet settled.
+        pending_transaction_id:
+          type: string
+          nullable: true
+          description: The `transaction_id` of the pending transaction this settled from, if any.
+        transaction_code:
+          type: string
+          nullable: true
+        transaction_type:
+          type: string
+          nullable: true
+          enum: [digital, place, special, unresolved]
+        logo_url:
+          type: string
+          nullable: true
+          format: uri
+        website:
+          type: string
+          nullable: true
+        check_number:
+          type: string
+          nullable: true
+        counterparties:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+                enum: [merchant, financial_institution, tax_authority, individual, government, payment_app]
+              logo_url:
+                type: string
+                nullable: true
+                format: uri
+              website:
+                type: string
+                nullable: true
+              entity_id:
+                type: string
+                nullable: true
+              confidence_level:
+                type: string
+                enum: [VERY_HIGH, HIGH, MEDIUM, LOW, UNKNOWN]
+
+    TransactionLocation:
+      type: object
+      properties:
+        address:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        region:
+          type: string
+          nullable: true
+        postal_code:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          nullable: true
+        lon:
+          type: number
+          nullable: true
+        store_number:
+          type: string
+          nullable: true
+
+    PaymentMeta:
+      type: object
+      properties:
+        reference_number:
+          type: string
+          nullable: true
+        ppd_id:
+          type: string
+          nullable: true
+        payee:
+          type: string
+          nullable: true
+        by_order_of:
+          type: string
+          nullable: true
+        payer:
+          type: string
+          nullable: true
+        payment_method:
+          type: string
+          nullable: true
+        payment_processor:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+
+    # ── IDENTITY ──────────────────────────────────────
+    Owner:
+      type: object
+      properties:
+        names:
+          type: array
+          items:
+            type: string
+          description: Legal names on the account.
+        phone_numbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhoneNumber'
+        emails:
+          type: array
+          items:
+            $ref: '#/components/schemas/Email'
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
+
+    PhoneNumber:
+      type: object
+      properties:
+        data:
+          type: string
+        primary:
+          type: boolean
+        type:
+          type: string
+          enum: [home, work, office, mobile, mobile1, other]
+
+    Email:
+      type: object
+      properties:
+        data:
+          type: string
+          format: email
+        primary:
+          type: boolean
+        type:
+          type: string
+          enum: [primary, secondary, other]
+
+    Address:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            street:
+              type: string
+              nullable: true
+            city:
+              type: string
+              nullable: true
+            region:
+              type: string
+              nullable: true
+            postal_code:
+              type: string
+              nullable: true
+            country:
+              type: string
+              nullable: true
+        primary:
+          type: boolean
+
+    # ── NUMBER (AUTH) ──────────────────────────────────
+    NumbersACH:
+      type: object
+      properties:
+        account_id:
+          type: string
+        account:
+          type: string
+          description: The full account number.
+        routing:
+          type: string
+          description: ABA routing number.
+        wire_routing:
+          type: string
+          nullable: true
+          description: Wire routing number (may differ from ACH routing).
+
+    NumbersEFT:
+      type: object
+      properties:
+        account_id:
+          type: string
+        account:
+          type: string
+        institution:
+          type: string
+        branch:
+          type: string
+
+    NumbersInternational:
+      type: object
+      properties:
+        account_id:
+          type: string
+        iban:
+          type: string
+          nullable: true
+        bic:
+          type: string
+          nullable: true
+
+    NumbersBACS:
+      type: object
+      properties:
+        account_id:
+          type: string
+        account:
+          type: string
+        sort_code:
+          type: string
+
+    # ── INSTITUTION ───────────────────────────────────
+    Institution:
+      type: object
+      properties:
+        institution_id:
+          type: string
+        name:
+          type: string
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        country_codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountryCode'
+        url:
+          type: string
+          nullable: true
+          format: uri
+        primary_color:
+          type: string
+          nullable: true
+        logo:
+          type: string
+          nullable: true
+          description: Base64-encoded institution logo.
+        routing_numbers:
+          type: array
+          items:
+            type: string
+        dtc_numbers:
+          type: array
+          items:
+            type: string
+        oauth:
+          type: boolean
+          description: Whether the institution uses OAuth for authentication.
+        status:
+          type: object
+          nullable: true
+        payment_initiation_metadata:
+          type: object
+          nullable: true
+
+    InstitutionsGetRequestOptions:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        routing_numbers:
+          type: array
+          items:
+            type: string
+        oauth:
+          type: boolean
+        include_auth_metadata:
+          type: boolean
+          default: false
+        include_payment_initiation_metadata:
+          type: boolean
+          default: false
+
+    # ── RECURRING TRANSACTION ─────────────────────────
+    TransactionStream:
+      type: object
+      properties:
+        account_id:
+          type: string
+        stream_id:
+          type: string
+        category:
+          type: array
+          items:
+            type: string
+        category_id:
+          type: string
+        description:
+          type: string
+        merchant_name:
+          type: string
+          nullable: true
+        first_date:
+          type: string
+          format: date
+        last_date:
+          type: string
+          format: date
+        frequency:
+          type: string
+          enum: [WEEKLY, BIWEEKLY, SEMI_MONTHLY, MONTHLY, ANNUALLY, IRREGULAR, UNKNOWN]
+        transaction_ids:
+          type: array
+          items:
+            type: string
+        average_amount:
+          type: object
+          properties:
+            amount:
+              type: number
+            iso_currency_code:
+              type: string
+              nullable: true
+        last_amount:
+          type: object
+          properties:
+            amount:
+              type: number
+            iso_currency_code:
+              type: string
+              nullable: true
+        is_active:
+          type: boolean
+        status:
+          type: string
+          enum: [MATURE, EARLY_DETECTION, TOMBSTONED, UNKNOWN]
+        personal_finance_category:
+          type: object
+          nullable: true
+          properties:
+            primary:
+              type: string
+            detailed:
+              type: string
+            confidence_level:
+              type: string
+
+    # ── CATEGORY ──────────────────────────────────────
+    Category:
+      type: object
+      properties:
+        category_id:
+          type: string
+        group:
+          type: string
+          enum: [special, place, transfer, recreation, shops, food]
+        hierarchy:
+          type: array
+          items:
+            type: string
+          description: Human-readable category hierarchy, e.g. ["Food and Drink", "Restaurants"].
+
+    # ── REQUEST SCHEMAS ───────────────────────────────
+    LinkTokenCreateRequest:
+      type: object
+      required: [user, client_name, language, country_codes]
+      allOf:
+        - $ref: '#/components/schemas/AuthFields'
+      properties:
+        user:
+          type: object
+          required: [client_user_id]
+          properties:
+            client_user_id:
+              type: string
+              description: Your unique identifier for the user. Used for token deduplication.
+            legal_name:
+              type: string
+            name:
+              type: object
+              properties:
+                given_name:
+                  type: string
+                family_name:
+                  type: string
+            phone_number:
+              type: string
+            phone_number_verified_time:
+              type: string
+              format: date-time
+            email_address:
+              type: string
+              format: email
+            email_address_verified_time:
+              type: string
+              format: date-time
+            id_number:
+              type: object
+              properties:
+                value:
+                  type: string
+                type:
+                  type: string
+                  enum: [ar_dni, au_drivers_license, au_passport, br_cpf, ca_sin, cl_run, cn_resident_card, co_nit, dk_cpr, eg_national_id, es_nif, et_medhanit, gb_nhs, hk_hkid, in_pan, it_cf, jo_civil, jp_my_number, ke_huduma_namba, kw_civil, mx_curp, mx_rfc, my_nric, ng_nin, nz_drivers_license, om_civil, ph_psn, pk_cnic, pl_pesel, ro_cnp, sa_national_id, se_pin, sg_nric, tr_tc_kimlik, us_ssn, us_ssn_last_4, za_smartid]
+        client_name:
+          type: string
+          description: Display name shown on the Link consent pane.
+        language:
+          type: string
+          description: Language for the Link UI (e.g. `en`).
+        country_codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountryCode'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        required_if_supported_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        optional_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        additional_consented_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Products'
+        webhook:
+          type: string
+          format: uri
+        access_token:
+          type: string
+          description: Supply an existing `access_token` to launch Link in update mode.
+        link_customization_name:
+          type: string
+        redirect_uri:
+          type: string
+          format: uri
+          description: Required for OAuth institutions to redirect back to your app.
+        android_package_name:
+          type: string
+        account_filters:
+          type: object
+          description: Pre-filter accounts by type presented in Link.
+        institutions:
+          type: array
+          items:
+            type: string
+          description: Limit Link to specific institution IDs.
+        auth:
+          type: object
+          properties:
+            flow_type:
+              type: string
+              enum: [INSTANT_AUTH, INSTANT_MATCH, AUTOMATED_MICRODEPOSITS, SAME_DAY_MICRODEPOSITS, INSTANT_MICRODEPOSITS, DATABASE_MATCH, DATABASE_INSIGHTS]
+            automated_microdeposits_enabled:
+              type: boolean
+            instant_microdeposits_enabled:
+              type: boolean
+            same_day_microdeposits_enabled:
+              type: boolean
+            database_match:
+              type: object
+        identity_verification:
+          type: object
+          properties:
+            template_id:
+              type: string
+        user_token:
+          type: string
+          description: A user token to associate this Link session with a Plaid user.
+        hosted_link:
+          type: object
+          properties:
+            delivery_method:
+              type: string
+              enum: [SMS, URL]
+
+    TransactionsSyncRequest:
+      allOf:
+        - $ref: '#/components/schemas/AuthFields'
+        - $ref: '#/components/schemas/AccessTokenField'
+        - type: object
+          properties:
+            cursor:
+              type: string
+              maxLength: 256
+              description: |
+                Pagination cursor from the previous response's `next_cursor`.
+                Omit on first call to receive full history.
+            count:
+              type: integer
+              minimum: 1
+              maximum: 500
+              default: 100
+              description: Number of transaction updates to return.
+            options:
+              type: object
+              properties:
+                include_original_description:
+                  type: boolean
+                  default: false
+                include_personal_finance_category:
+                  type: boolean
+                  default: false
+                include_logo_and_counterparties:
+                  type: boolean
+                  default: false
+                days_requested:
+                  type: integer
+                  minimum: 1
+                  maximum: 730
+                personal_finance_category_version:
+                  type: string
+                  enum: [v1, v2]
+
+    TransactionsGetRequest:
+      allOf:
+        - $ref: '#/components/schemas/AuthFields'
+        - $ref: '#/components/schemas/AccessTokenField'
+        - type: object
+          required: [start_date, end_date]
+          properties:
+            start_date:
+              type: string
+              format: date
+              description: Start of the date range (YYYY-MM-DD). Up to 24 months back.
+            end_date:
+              type: string
+              format: date
+              description: End of the date range (YYYY-MM-DD). Cannot be a future date.
+            options:
+              type: object
+              properties:
+                account_ids:
+                  type: array
+                  items:
+                    type: string
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 500
+                  default: 100
+                offset:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                include_original_description:
+                  type: boolean
+                  default: false
+                include_personal_finance_category:
+                  type: boolean
+                  default: false
+                include_logo_and_counterparties:
+                  type: boolean
+                  default: false
+                days_requested:
+                  type: integer
+                personal_finance_category_version:
+                  type: string
+                  enum: [v1, v2]
+
+    # ── RESPONSE SCHEMAS ──────────────────────────────
+    LinkTokenCreateResponse:
+      type: object
+      properties:
+        link_token:
+          type: string
+          description: A `link_token`, valid for 4 hours. Pass to the Plaid Link SDK.
+        expiration:
+          type: string
+          format: date-time
+          description: Expiry timestamp of the link token.
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    LinkTokenGetResponse:
+      type: object
+      properties:
+        link_token:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        expiration:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+          properties:
+            initial_products:
+              type: array
+              items:
+                $ref: '#/components/schemas/Products'
+            webhook:
+              type: string
+              nullable: true
+              format: uri
+            country_codes:
+              type: array
+              items:
+                $ref: '#/components/schemas/CountryCode'
+            language:
+              type: string
+              nullable: true
+            account_filters:
+              type: object
+              nullable: true
+            redirect_uri:
+              type: string
+              nullable: true
+              format: uri
+            client_name:
+              type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    ItemGetResponse:
+      type: object
+      properties:
+        item:
+          $ref: '#/components/schemas/Item'
+        status:
+          type: object
+          nullable: true
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    ItemRemoveResponse:
+      type: object
+      properties:
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    ItemWebhookUpdateResponse:
+      type: object
+      properties:
+        item:
+          $ref: '#/components/schemas/Item'
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    ItemPublicTokenExchangeResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: The long-lived access token for the Item.
+        item_id:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    AccountsGetResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        item:
+          $ref: '#/components/schemas/Item'
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    TransactionsSyncResponse:
+      type: object
+      properties:
+        added:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: New transactions since the cursor.
+        modified:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Transactions that have been updated.
+        removed:
+          type: array
+          items:
+            type: object
+            properties:
+              transaction_id:
+                type: string
+          description: Transactions that have been removed.
+        next_cursor:
+          type: string
+          description: Cursor for the next sync call. Store and reuse.
+        has_more:
+          type: boolean
+          description: If true, call `/transactions/sync` again with `next_cursor` to fetch remaining updates.
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    TransactionsGetResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        total_transactions:
+          type: integer
+          description: Total number of transactions available for the date range (for pagination).
+        item:
+          $ref: '#/components/schemas/Item'
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    TransactionsRecurringGetResponse:
+      type: object
+      properties:
+        inflow_streams:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionStream'
+          description: Recurring inflows (e.g. salary, dividends).
+        outflow_streams:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionStream'
+          description: Recurring outflows (e.g. subscriptions, rent).
+        updated_datetime:
+          type: string
+          format: date-time
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    AuthGetResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        numbers:
+          type: object
+          properties:
+            ach:
+              type: array
+              items:
+                $ref: '#/components/schemas/NumbersACH'
+            eft:
+              type: array
+              items:
+                $ref: '#/components/schemas/NumbersEFT'
+            international:
+              type: array
+              items:
+                $ref: '#/components/schemas/NumbersInternational'
+            bacs:
+              type: array
+              items:
+                $ref: '#/components/schemas/NumbersBACS'
+        item:
+          $ref: '#/components/schemas/Item'
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    IdentityGetResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Account'
+              - type: object
+                properties:
+                  owners:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Owner'
+        item:
+          $ref: '#/components/schemas/Item'
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    InstitutionsGetResponse:
+      type: object
+      properties:
+        institutions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Institution'
+        total:
+          type: integer
+          description: Total number of institutions matching the request.
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    InstitutionsSearchResponse:
+      type: object
+      properties:
+        institutions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Institution'
+        request_id:
+          $ref: '#/components/schemas/RequestId'
+
+    InstitutionsGetByIdResponse:
+      type: object
+      properties:
+        institution:
+          $ref: '#/components/schemas/Institution'
+        request_id:
+          $ref: '#/components/schemas/RequestId'
