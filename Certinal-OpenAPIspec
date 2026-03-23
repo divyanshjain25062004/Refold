@@ -1,0 +1,1722 @@
+openapi: 3.0.3
+info:
+  title: Certinal eSign API
+  description: |
+    Certinal eSign's Remote Signing API seamlessly integrates powerful eSignature capabilities
+    into your applications, offering a secure and efficient solution for document signing.
+
+    Certinal empowers you to embed fast, reliable, and scalable eSignature workflows into your
+    existing systems — CRMs, ERPs, HR platforms, and custom applications.
+
+    ## Key Capabilities
+    - Create, send, track, and manage eSignature transactions
+    - Upload documents and configure signature fields with precise positioning
+    - Use templates for repeatable signing workflows
+    - Manage users and roles within your organization
+    - Subscribe to real-time webhook notifications for transaction events
+    - Download signed documents and audit trails
+
+    ## Authentication
+    Certinal uses **API Key** authentication. Generate your API key from the Certinal Admin
+    account and include it in the `X-API-KEY` header of every request.
+
+    ## Resources
+    - [Certinal Website](https://www.certinal.com)
+    - [API Documentation (Stoplight)](https://certinal.stoplight.io/docs/api/72b66de24898e-introduction)
+    - [Postman Collection](https://www.postman.com/certinal/workspace/certinal-public-workspace/overview)
+    - [Support](https://esign.certinal.com/esign/certinal-docs/help-support)
+  version: 1.0.0
+  contact:
+    name: Certinal Help & Support
+    url: https://www.certinal.com/department/esignature-for-support
+    email: tech-support@certinal.com
+  license:
+    name: Proprietary
+    url: https://www.certinal.com/enterprise-terms-and-conditions
+  termsOfService: https://www.certinal.com/terms-of-use
+  x-logo:
+    url: https://www.certinal.com/wp-content/uploads/2023/05/Logo_Certinal-1.svg
+    altText: Certinal eSign
+
+externalDocs:
+  description: Certinal API Documentation
+  url: https://certinal.stoplight.io/docs/api/72b66de24898e-introduction
+
+servers:
+  - url: https://api.certinal.com
+    description: Production Server
+  - url: https://api-sandbox.certinal.com
+    description: Sandbox / Testing Server
+
+tags:
+  - name: Transactions
+    description: Create, retrieve, manage, and track eSignature transactions
+  - name: Documents
+    description: Upload and download documents associated with transactions
+  - name: Templates
+    description: Create transactions from pre-configured templates
+  - name: Users
+    description: Manage organization users and roles
+  - name: Webhooks
+    description: Subscribe to real-time event notifications
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  # ──────────────────────────────────────────────
+  #  TRANSACTIONS
+  # ──────────────────────────────────────────────
+  /v1/transactions:
+    post:
+      operationId: CreateTransaction
+      summary: Create Transaction
+      description: |
+        Create a new eSignature transaction. A transaction represents a signing workflow
+        that includes one or more documents and one or more participants (signers, reviewers, etc.).
+
+        You can configure participants, signature fields, callback URLs, expiry/reminder settings,
+        CC users, custom fields, and document metadata in a single request.
+      tags:
+        - Transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+            example:
+              name: "Employment Agreement - John Doe"
+              message: "Please review and sign the attached employment agreement."
+              status: "SENT"
+              externalId: "EMP-2025-001"
+              expiryAndReminders:
+                expiresAtTimestamp: "2025-04-30T23:59:59Z"
+                remindFromTimestamp: "2025-04-20T09:00:00Z"
+                reminderFrequency: 2
+              callback:
+                url: "https://your-app.com/webhooks/certinal"
+                transactionEvents:
+                  - "COMPLETED"
+                  - "DECLINED"
+                participantEvents:
+                  - "SIGNED"
+                  - "VIEWED"
+              participants:
+                - sequence: 1
+                  role: "SIGNER"
+                  default: true
+                  candidates:
+                    - name: "John Doe"
+                      emailAddress: "john.doe@example.com"
+                      language: "en"
+                      authenticationMode: "EMAIL_OTP"
+                      deliveryChannels:
+                        - "EMAIL"
+                  fields:
+                    - fieldId: "signature_1"
+                      fieldName: "Signature"
+                      documentId: "doc-abc123"
+                      pages:
+                        - "1"
+                      xposition: 100.0
+                      yposition: 650.0
+                      width: 200.0
+                      height: 50.0
+                      required: true
+                      readOnly: false
+              ccUsers:
+                - name: "HR Manager"
+                  emailAddress: "hr@example.com"
+                  language: "en"
+              documents:
+                - id: "doc-abc123"
+                  sequence: 1
+                  deletable: false
+                  private: false
+              customFields:
+                - fieldName: "department"
+                  value: "Engineering"
+                  code: "DEPT"
+      responses:
+        '200':
+          description: Transaction created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionCreateResponse'
+              example:
+                timestamp: 1711929600000
+                statusCode: 200
+                message: "Transaction created successfully"
+                data:
+                  transactionId: "txn-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/transactions/{transactionId}:
+    get:
+      operationId: GetTransactionDetails
+      summary: Get Transaction Details
+      description: |
+        Retrieve the full details of a transaction by its unique ID. Returns comprehensive
+        information including transaction status, participants with their signing status,
+        document metadata, field positions, custom fields, CC users, expiry/reminder
+        configuration, and audit information.
+      tags:
+        - Transactions
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+      responses:
+        '200':
+          description: Transaction details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/transactions/{transactionId}/send:
+    post:
+      operationId: SendTransaction
+      summary: Send Transaction
+      description: |
+        Send a transaction that was created in DRAFT status. This triggers the signing
+        workflow and delivers the documents to all participants.
+      tags:
+        - Transactions
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+      responses:
+        '200':
+          description: Transaction sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/transactions/{transactionId}/cancel:
+    post:
+      operationId: CancelTransaction
+      summary: Cancel Transaction
+      description: Cancel an in-progress transaction. Once cancelled, participants can no longer sign.
+      tags:
+        - Transactions
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for cancellation
+      responses:
+        '200':
+          description: Transaction cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/transactions/{transactionId}/remind:
+    post:
+      operationId: SendReminder
+      summary: Send Reminder
+      description: Send a reminder notification to pending participants of a transaction.
+      tags:
+        - Transactions
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+      responses:
+        '200':
+          description: Reminder sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/transactions/{transactionId}/signing-url/{participantId}:
+    get:
+      operationId: GetSigningUrl
+      summary: Get Signing URL
+      description: |
+        Generate a signing URL for a specific participant. This URL can be embedded
+        in your application to provide an in-app signing experience.
+      tags:
+        - Transactions
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+        - name: participantId
+          in: path
+          required: true
+          description: The unique identifier of the participant
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Signing URL generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: integer
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      signingUrl:
+                        type: string
+                        format: uri
+                        description: The URL where the participant can sign
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ──────────────────────────────────────────────
+  #  DOCUMENTS
+  # ──────────────────────────────────────────────
+  /v1/transactions/{transactionId}/documents:
+    post:
+      operationId: UploadDocument
+      summary: Upload Document to Transaction
+      description: |
+        Upload a document to an existing transaction. Supported formats include PDF,
+        DOCX, and other common document types. The returned document ID is used when
+        configuring signature field positions.
+      tags:
+        - Documents
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The document file to upload
+                sequence:
+                  type: integer
+                  description: Display order of the document within the transaction
+                deletable:
+                  type: boolean
+                  description: Whether the document can be deleted
+                  default: true
+                private:
+                  type: boolean
+                  description: Whether the document is private (visible only to sender)
+                  default: false
+      responses:
+        '200':
+          description: Document uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: integer
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      documentId:
+                        type: string
+                        description: The unique identifier of the uploaded document
+                      fileName:
+                        type: string
+                      pageCount:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/transactions/{transactionId}/documents/download:
+    get:
+      operationId: DownloadDocuments
+      summary: Download Documents for Transaction
+      description: |
+        Download documents associated with a transaction. You can download the signed
+        documents, the original documents, the audit trail, or the certificate of completion.
+      tags:
+        - Documents
+      parameters:
+        - $ref: '#/components/parameters/TransactionId'
+        - name: documentType
+          in: query
+          required: true
+          description: The type of document to download
+          schema:
+            type: string
+            enum:
+              - SIGNED
+              - ORIGINAL
+              - AUDIT_TRAIL
+              - CERTIFICATE_OF_COMPLETION
+      responses:
+        '200':
+          description: Document file returned successfully
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ──────────────────────────────────────────────
+  #  TEMPLATES
+  # ──────────────────────────────────────────────
+  /v1/transactions/template:
+    post:
+      operationId: CreateTransactionUsingTemplate
+      summary: Create Transaction Using Template
+      description: |
+        Create a new transaction from a pre-configured template. Templates define the
+        document layout, signature fields, and participant roles. You supply participant
+        details, pre-fill field values, and optional overrides.
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionFromTemplateRequest'
+            example:
+              name: "NDA - Acme Corp"
+              status: "SENT"
+              templateId: "tpl-xyz789"
+              externalId: "NDA-2025-042"
+              message: "Please sign the NDA at your earliest convenience."
+              callback:
+                url: "https://your-app.com/webhooks/certinal"
+                transactionEvents:
+                  - "COMPLETED"
+                participantEvents:
+                  - "SIGNED"
+              participants:
+                - sequence: 1
+                  role: "SIGNER"
+                  autoProcess: false
+                  candidates:
+                    - name: "Jane Smith"
+                      emailAddress: "jane.smith@acme.com"
+                      language: "en"
+                      deliveryChannels:
+                        - "EMAIL"
+                  prefillFields:
+                    - fieldName: "company_name"
+                      value: "Acme Corp"
+      responses:
+        '200':
+          description: Transaction created from template successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionCreateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/templates:
+    get:
+      operationId: ListTemplates
+      summary: List Templates
+      description: Retrieve a paginated list of templates available to the authenticated user.
+      tags:
+        - Templates
+      parameters:
+        - name: pageNo
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+          description: Page number (0-indexed)
+        - name: perPageRecords
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Number of records per page
+      responses:
+        '200':
+          description: Templates listed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: integer
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      totalRecords:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      perPageRecords:
+                        type: integer
+                      pageNo:
+                        type: integer
+                      records:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            templateId:
+                              type: string
+                            name:
+                              type: string
+                            createdDate:
+                              type: string
+                              format: date-time
+                            lastUpdatedDate:
+                              type: string
+                              format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/templates/{templateId}:
+    get:
+      operationId: GetTemplateDetails
+      summary: Get Template Details
+      description: Retrieve full details of a specific template including roles, fields, and documents.
+      tags:
+        - Templates
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          description: The unique template identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: integer
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      templateId:
+                        type: string
+                      name:
+                        type: string
+                      participants:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Participant'
+                      documents:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Document'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ──────────────────────────────────────────────
+  #  USERS
+  # ──────────────────────────────────────────────
+  /v1/users:
+    get:
+      operationId: ListUsers
+      summary: List Users
+      description: Retrieve a paginated list of all users in the organization.
+      tags:
+        - Users
+      parameters:
+        - name: pageNo
+          in: query
+          required: true
+          description: Page number (0-indexed)
+          schema:
+            type: integer
+            minimum: 0
+        - name: perPageRecords
+          in: query
+          required: true
+          description: Number of records per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Users listed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      operationId: CreateUser
+      summary: Create User
+      description: |
+        Create a new user within the organization. Users can be assigned roles such as
+        ADMIN, SENDER, or INTEGRATION_USER. You can also configure notification preferences.
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            example:
+              emailAddress: "newuser@company.com"
+              firstName: "Alice"
+              lastName: "Johnson"
+              company: "Acme Corp"
+              timezone: "America/New_York"
+              language: "en"
+              dateFormat: "MM/DD/YYYY"
+              salutation: "Ms."
+              jobTitle: "Legal Counsel"
+              phoneNumber: "5551234567"
+              phoneCountryCode: "+1"
+              roles:
+                - "SENDER"
+              finalMailDisabled: false
+              reminderMailDisabled: false
+              senderMailDisabled: false
+              integrationUser: false
+      responses:
+        '200':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateUserResponse'
+              example:
+                timestamp: 1711929600000
+                statusCode: 200
+                message: "User created successfully"
+                data:
+                  user_id: "usr-abc123def456"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: User with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/users/{userId}:
+    get:
+      operationId: GetUserDetails
+      summary: Get User Details
+      description: Retrieve the full profile and settings for a specific user.
+      tags:
+        - Users
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The unique user identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ──────────────────────────────────────────────
+  #  WEBHOOKS
+  # ──────────────────────────────────────────────
+  /v1/webhooks:
+    post:
+      operationId: CreateWebhookSubscription
+      summary: Register Webhook Subscription
+      description: |
+        Register a callback URL to receive real-time notifications when transaction
+        events occur (e.g., COMPLETED, DECLINED, EXPIRED, SIGNED, VIEWED).
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+                - eventType
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: The callback URL to receive event notifications
+                eventType:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - CREATED
+                      - SENT
+                      - COMPLETED
+                      - DECLINED
+                      - CANCELLED
+                      - EXPIRED
+                      - SIGNED
+                      - VIEWED
+                      - REASSIGNED
+                  description: The transaction event types to subscribe to
+            example:
+              url: "https://your-app.com/webhooks/certinal"
+              eventType:
+                - "COMPLETED"
+                - "DECLINED"
+                - "EXPIRED"
+      responses:
+        '200':
+          description: Webhook subscription registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: integer
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      webhookId:
+                        type: string
+                        description: The unique identifier of the webhook subscription
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/webhooks/{webhookId}:
+    delete:
+      operationId: DeleteSubscription
+      summary: Delete Webhook Subscription
+      description: Remove a previously registered webhook subscription.
+      tags:
+        - Webhooks
+      parameters:
+        - name: webhookId
+          in: path
+          required: true
+          description: The unique identifier of the webhook subscription to delete
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Webhook subscription deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+# ════════════════════════════════════════════════
+#  COMPONENTS
+# ════════════════════════════════════════════════
+components:
+
+  # ── Security Schemes ──
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: |
+        API Key authentication. Generate your key from the Certinal Admin account
+        under Settings → API Keys.
+
+  # ── Parameters ──
+  parameters:
+    TransactionId:
+      name: transactionId
+      in: path
+      required: true
+      description: The unique transaction identifier
+      schema:
+        type: string
+
+  # ── Reusable Responses ──
+  responses:
+    BadRequest:
+      description: Bad request — invalid or missing parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized — invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden — insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  # ── Schemas ──
+  schemas:
+
+    # ── Base / Shared ──
+    BaseResponse:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds
+        statusCode:
+          type: integer
+          description: HTTP status code
+        message:
+          type: string
+          description: Human-readable status message
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    # ── Transaction Create ──
+    CreateTransactionRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Transaction name / title
+        message:
+          type: string
+          description: Message included in participant notification emails
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - SENT
+          description: "Initial status: DRAFT (editable) or SENT (immediately dispatched)"
+          default: DRAFT
+        externalId:
+          type: string
+          description: Your external reference ID for this transaction
+        expiryAndReminders:
+          $ref: '#/components/schemas/ExpiryAndReminders'
+        callback:
+          $ref: '#/components/schemas/Callback'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantInput'
+          description: Ordered list of participants (signers, reviewers, etc.)
+        ccUsers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CcUser'
+          description: Users who receive a copy of the completed transaction
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentInput'
+          description: Documents attached to this transaction
+        customFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomFieldInput'
+          description: Custom metadata fields for the transaction
+
+    CreateTransactionFromTemplateRequest:
+      type: object
+      required:
+        - templateId
+      properties:
+        name:
+          type: string
+          description: Transaction name (overrides template default)
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - SENT
+          default: DRAFT
+        externalId:
+          type: string
+        templateId:
+          type: string
+          description: The ID of the template to use
+        secondaryTemplateIds:
+          type: array
+          items:
+            type: string
+          description: Additional template IDs to merge into the transaction
+        message:
+          type: string
+          description: Message for participant notification emails
+        callback:
+          $ref: '#/components/schemas/Callback'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateParticipantInput'
+        customFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomFieldInput'
+
+    TransactionCreateResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                transactionId:
+                  type: string
+                  description: The unique identifier of the created transaction
+
+    # ── Transaction Detail ──
+    TransactionDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TransactionDetail'
+
+    TransactionDetail:
+      type: object
+      properties:
+        transactionId:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - SENT
+            - COMPLETED
+            - DECLINED
+            - CANCELLED
+            - EXPIRED
+            - VOIDED
+        mail:
+          type: object
+          properties:
+            message:
+              type: string
+        createdDate:
+          type: string
+          format: date-time
+        lastUpdatedDate:
+          type: string
+          format: date-time
+        sentDate:
+          type: string
+          format: date-time
+        createdBy:
+          $ref: '#/components/schemas/UserRef'
+        lastActionPerformedBy:
+          $ref: '#/components/schemas/ActionPerformedBy'
+        expiryAndReminders:
+          $ref: '#/components/schemas/ExpiryAndRemindersDetail'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+        ccUsers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CcUser'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+        additionalDocuments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdditionalDocument'
+        customFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomField'
+        notificationSubscriptions:
+          type: array
+          items:
+            type: object
+        tags:
+          type: array
+          items:
+            type: string
+        separateAgreements:
+          type: boolean
+
+    # ── Participant ──
+    ParticipantInput:
+      type: object
+      properties:
+        sequence:
+          type: integer
+          description: Signing order (1, 2, 3, ...)
+        role:
+          type: string
+          enum:
+            - SIGNER
+            - REVIEWER
+            - IN_PERSON_SIGNER
+            - CARBON_COPY
+          description: The participant's role in the transaction
+        default:
+          type: boolean
+          description: Use default signature block fields
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateInput'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldInput'
+        signatureBlock:
+          $ref: '#/components/schemas/SignatureBlock'
+        enableDelegate:
+          type: boolean
+          description: Allow participant to delegate signing to another person
+        autoProcess:
+          type: boolean
+          description: Automatically process the participant (skip manual trigger)
+
+    TemplateParticipantInput:
+      type: object
+      properties:
+        sequence:
+          type: integer
+        role:
+          type: string
+        autoProcess:
+          type: boolean
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateInput'
+        prefillFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrefillField'
+
+    Participant:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - PENDING
+            - SIGNED
+            - DECLINED
+            - VIEWED
+            - COMPLETED
+            - REASSIGNED
+        lastUpdatedDate:
+          type: string
+          format: date-time
+        createdDate:
+          type: string
+          format: date-time
+        sequence:
+          type: integer
+        role:
+          type: string
+        signingMethodDTO:
+          type: array
+          items:
+            type: string
+        submittedBys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmittedBy'
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Candidate'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
+        signatureBlock:
+          $ref: '#/components/schemas/SignatureBlock'
+        enableDelegate:
+          type: boolean
+        autoProcess:
+          type: boolean
+
+    # ── Candidate ──
+    CandidateInput:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Candidate's full name
+        emailAddress:
+          type: string
+          format: email
+          description: Candidate's email address
+        language:
+          type: string
+          description: "Language code (e.g., en, fr, de)"
+        authenticationMode:
+          type: string
+          enum:
+            - NONE
+            - EMAIL_OTP
+            - SMS_OTP
+            - ACCESS_CODE
+          description: Authentication method required before signing
+        authenticationModeValue:
+          type: string
+          description: Value for the authentication mode (e.g., access code)
+        deliveryChannels:
+          type: array
+          items:
+            type: string
+            enum:
+              - EMAIL
+              - SMS
+          description: How the signing request is delivered
+        customSMSBody:
+          type: string
+          description: Custom SMS message body
+
+    Candidate:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+        language:
+          type: string
+        type:
+          type: string
+        action:
+          type: string
+        actionDate:
+          type: string
+          format: date-time
+        createdDate:
+          type: string
+          format: date-time
+        authenticationInfo:
+          type: object
+          properties:
+            authenticationModeValue:
+              type: string
+        signingMethodDTO:
+          type: array
+          items:
+            type: string
+        attachments:
+          type: array
+          items:
+            type: object
+        deliveryChannels:
+          type: array
+          items:
+            type: string
+
+    # ── Fields ──
+    FieldInput:
+      type: object
+      properties:
+        fieldId:
+          type: string
+          description: Unique field identifier
+        fieldName:
+          type: string
+          description: "Field type name (e.g., Signature, Initials, DateSigned, Text, Checkbox)"
+        documentId:
+          type: string
+          description: The document this field belongs to
+        pages:
+          type: array
+          items:
+            type: string
+          description: Page numbers where the field appears
+        xposition:
+          type: number
+          format: float
+          description: X coordinate of the field (from left edge)
+        yposition:
+          type: number
+          format: float
+          description: Y coordinate of the field (from top edge)
+        width:
+          type: number
+          format: float
+          description: Width of the field in points
+        height:
+          type: number
+          format: float
+          description: Height of the field in points
+        tooltip:
+          type: string
+        dateFormat:
+          type: string
+          description: "Date format for date fields (e.g., MM/DD/YYYY)"
+        textareaLineCount:
+          type: string
+        required:
+          type: boolean
+          description: Whether the field must be completed
+          default: true
+        readOnly:
+          type: boolean
+          description: Whether the field is read-only
+          default: false
+        textarea:
+          type: boolean
+        topBottom:
+          type: boolean
+        vertical:
+          type: boolean
+        radioGroupId:
+          type: string
+          description: Radio button group identifier
+        defaultValue:
+          type: string
+        value:
+          type: string
+        displayLabel:
+          type: string
+
+    Field:
+      allOf:
+        - $ref: '#/components/schemas/FieldInput'
+        - type: object
+          properties:
+            id:
+              type: string
+            lastUpdatedDate:
+              type: string
+              format: date-time
+            createdDate:
+              type: string
+              format: date-time
+            pageNo:
+              type: integer
+            validation:
+              type: string
+            nameStyle:
+              type: string
+            linkType:
+              type: string
+            radioId:
+              type: integer
+            checkboxId:
+              type: integer
+
+    PrefillField:
+      type: object
+      properties:
+        fieldName:
+          type: string
+          description: Name of the template field to pre-fill
+        value:
+          type: string
+          description: Value to pre-fill
+
+    # ── Document ──
+    DocumentInput:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Document ID (from upload response)
+        sequence:
+          type: integer
+          description: Display order
+        deletable:
+          type: boolean
+        private:
+          type: boolean
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+        sequence:
+          type: integer
+        fileName:
+          type: string
+        pageCount:
+          type: integer
+        deletable:
+          type: boolean
+        private:
+          type: boolean
+
+    AdditionalDocument:
+      type: object
+      properties:
+        id:
+          type: string
+        fileName:
+          type: string
+        type:
+          type: string
+        candidateId:
+          type: string
+
+    # ── Supporting Objects ──
+    ExpiryAndReminders:
+      type: object
+      properties:
+        expiresAtTimestamp:
+          type: string
+          format: date-time
+          description: When the transaction expires
+        remindFromTimestamp:
+          type: string
+          format: date-time
+          description: When to start sending reminders
+        reminderFrequency:
+          type: integer
+          description: Reminder frequency in days
+
+    ExpiryAndRemindersDetail:
+      allOf:
+        - $ref: '#/components/schemas/ExpiryAndReminders'
+        - type: object
+          properties:
+            expiryDays:
+              type: integer
+            remindFromReminderDays:
+              type: integer
+            remindFromReminderTime:
+              type: string
+
+    Callback:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Callback URL for event notifications
+        transactionEvents:
+          type: array
+          items:
+            type: string
+            enum:
+              - CREATED
+              - SENT
+              - COMPLETED
+              - DECLINED
+              - CANCELLED
+              - EXPIRED
+              - VOIDED
+          description: Transaction-level events to subscribe to
+        participantEvents:
+          type: array
+          items:
+            type: string
+            enum:
+              - SIGNED
+              - VIEWED
+              - DECLINED
+              - REASSIGNED
+          description: Participant-level events to subscribe to
+
+    CcUser:
+      type: object
+      properties:
+        name:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+        language:
+          type: string
+
+    CustomFieldInput:
+      type: object
+      properties:
+        fieldName:
+          type: string
+        value:
+          type: string
+        code:
+          type: string
+
+    CustomField:
+      type: object
+      properties:
+        customFieldId:
+          type: string
+        fieldName:
+          type: string
+        value:
+          type: string
+        fieldType:
+          type: string
+
+    SignatureBlock:
+      type: object
+      properties:
+        format:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              sequence:
+                type: integer
+              required:
+                type: boolean
+        default:
+          type: boolean
+
+    UserRef:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+
+    ActionPerformedBy:
+      type: object
+      properties:
+        userId:
+          type: string
+        userName:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+        candidateId:
+          type: string
+        participantId:
+          type: string
+
+    SubmittedBy:
+      type: object
+      properties:
+        userId:
+          type: string
+        userName:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+        candidateId:
+          type: string
+
+    # ── User Schemas ──
+    CreateUserRequest:
+      type: object
+      required:
+        - emailAddress
+        - firstName
+        - lastName
+      properties:
+        emailAddress:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+        timezone:
+          type: string
+          description: "IANA timezone (e.g., America/New_York, Asia/Kolkata)"
+        language:
+          type: string
+        dateFormat:
+          type: string
+        salutation:
+          type: string
+          enum:
+            - Mr.
+            - Ms.
+            - Mrs.
+            - Dr.
+        jobTitle:
+          type: string
+        phoneNumber:
+          type: string
+        phoneCountryCode:
+          type: string
+          description: "Country dial code (e.g., +1, +91)"
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - ADMIN
+              - SENDER
+              - VIEWER
+          description: Roles assigned to the user
+        finalMailDisabled:
+          type: boolean
+          description: Disable final completion email
+          default: false
+        reminderMailDisabled:
+          type: boolean
+          description: Disable reminder emails
+          default: false
+        senderMailDisabled:
+          type: boolean
+          description: Disable sender notification emails
+          default: false
+        integrationUser:
+          type: boolean
+          description: Whether this is an API integration user
+          default: false
+
+    CreateUserResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  description: The unique identifier of the created user
+
+    UserDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+        timezone:
+          type: string
+        language:
+          type: string
+        dateFormat:
+          type: string
+        salutation:
+          type: string
+        jobTitle:
+          type: string
+        phoneNumber:
+          type: string
+        phoneCountryCode:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        finalMailDisabled:
+          type: boolean
+        reminderMailDisabled:
+          type: boolean
+        senderMailDisabled:
+          type: boolean
+        integrationUser:
+          type: boolean
+        active:
+          type: boolean
+
+    UserDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UserDetail'
+
+    ListUsersResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                totalRecords:
+                  type: integer
+                totalPages:
+                  type: integer
+                perPageRecords:
+                  type: integer
+                pageNo:
+                  type: integer
+                records:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/UserDetail'
+
+    # ── Webhook Callback Payload ──
+    WebhookPayload:
+      description: |
+        The payload delivered to your callback URL when a subscribed event occurs.
+        Contains the full transaction detail at the time of the event.
+      allOf:
+        - $ref: '#/components/schemas/TransactionDetail'
