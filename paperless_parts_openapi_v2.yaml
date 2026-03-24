@@ -1,0 +1,3267 @@
+openapi: 3.0.3
+info:
+  title: Paperless Parts API
+  description: >
+    The Paperless Parts REST API enables developers to integrate with the
+    Paperless Parts manufacturing quoting platform. Common use cases include
+    syncing sent quotes and placed orders into ERP systems, managing CRM
+    data (accounts, contacts, facilities), and building managed integrations
+    that respond to platform events.
+
+
+    ## Authentication
+
+    All requests require an API token passed in the `Authorization` header
+    using the format `API-Token <your-token>`. Generate, revoke, or
+    re-generate your token from **Settings > Integrations > API Token**
+    in the Paperless Parts UI.
+
+
+    ## Rate Limiting
+
+    The API enforces a rate limit of **100 requests per minute**. Exceeding
+    this limit returns HTTP `429 Too Many Requests` with a `Retry-After`
+    header indicating the wait time in seconds.
+
+
+    ## Money Fields
+
+    Numeric fields representing monetary values are returned as numbers
+    rounded to 2 decimal places, except for `piece_price` on purchased
+    components which is returned with 4 decimal places.
+
+
+    ## Metadata
+
+    Several objects support a `metadata` property — a key-value object that
+    can store up to 25 keys, with key names up to 40 characters and values
+    up to 500 characters.
+
+
+    ## Python SDK
+
+    An official Python SDK is available at
+    [github.com/part-os/core-python](https://github.com/part-os/core-python).
+  version: "2.0"
+  contact:
+    name: Paperless Parts Support
+    url: https://help.paperlessparts.com
+    email: support@paperlessparts.com
+  license:
+    name: Proprietary
+    url: https://www.paperlessparts.com/privacy-policy/
+  termsOfService: https://www.paperlessparts.com/privacy-policy/
+
+servers:
+  - url: https://api.paperlessparts.com
+    description: Production API server
+
+security:
+  - ApiTokenAuth: []
+
+tags:
+  - name: Quotes
+    description: >
+      Create, retrieve, and manage quotes. Quotes are the core entity of the
+      Paperless Parts platform — each contains line items, pricing, customer
+      info, and status tracking.
+  - name: Quote Items
+    description: >
+      Manage individual line items within a quote. Each quote item represents
+      a part or assembly being quoted.
+  - name: Quote Operations
+    description: >
+      Manage manufacturing operations on quote items (e.g., CNC Milling,
+      Turning, Anodize).
+  - name: Quote Add-Ons
+    description: Manage add-on charges associated with quote items.
+  - name: Quote Discounts
+    description: Create and manage discounts applied to quotes.
+  - name: Quote Pricing Items
+    description: >
+      Manage pricing items and their quantity-based price breaks within
+      quote items.
+  - name: Quote Files
+    description: Upload and retrieve files attached to quotes.
+  - name: Orders
+    description: >
+      Retrieve placed orders and order details. Orders are created when a
+      customer places an order from a sent quote.
+  - name: Accounts
+    description: >
+      Manage company accounts in the Paperless Parts CRM. An account
+      represents a single company to which you send quotes.
+  - name: Contacts
+    description: >
+      Manage contacts (individuals) within accounts. Each contact is
+      uniquely identified by their email address.
+  - name: Billing Addresses
+    description: Manage billing addresses associated with accounts.
+  - name: Facilities
+    description: Manage facilities (shipping destinations) for accounts.
+  - name: Purchased Components
+    description: Manage purchased components and their custom property columns.
+  - name: Custom Tables
+    description: Create and manage user-defined lookup tables for pricing logic.
+  - name: Events
+    description: >
+      Retrieve platform events for managed integrations (e.g.,
+      order.created, quote.sent).
+  - name: Integration Actions
+    description: Create and update integration action log records.
+  - name: Integration Heartbeat
+    description: Report integration health status.
+
+paths:
+  # ════════════════════════════════════════════════
+  #  QUOTES — Core
+  # ════════════════════════════════════════════════
+  /quotes/public:
+    post:
+      operationId: createQuote
+      summary: Create a new quote
+      description: >
+        Creates a new quote object in draft status. All parameters are
+        optional. Associate a customer by providing contact_id. Assign
+        team members via the estimator and salesperson UUID fields.
+      tags:
+        - Quotes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteCreate"
+      responses:
+        "201":
+          description: Quote created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/new:
+    get:
+      operationId: listNewQuotes
+      summary: List newly sent quotes
+      description: >
+        Returns a list of newly sent quotes. Optionally provide a quote
+        number and revision to retrieve only quotes sent after that
+        specific quote, enabling incremental polling.
+      tags:
+        - Quotes
+      parameters:
+        - name: number
+          in: query
+          description: >
+            Quote number after which to start returning results.
+          required: false
+          schema:
+            type: integer
+            example: 37
+        - name: revision
+          in: query
+          description: >
+            Revision number used with number to define starting point.
+          required: false
+          schema:
+            type: integer
+            example: 1
+      responses:
+        "200":
+          description: A list of newly sent quotes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quote"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/header/{quoteUuid}:
+    get:
+      operationId: getQuoteHeader
+      summary: Get a quote header by UUID
+      description: >
+        Returns high-level header information for a quote identified by
+        its UUID, without full nested line-item details.
+      tags:
+        - Quotes
+      parameters:
+        - name: quoteUuid
+          in: path
+          description: The UUID of the quote.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Quote header details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/{quoteNumber}:
+    get:
+      operationId: getQuote
+      summary: Get a quote by number
+      description: >
+        Returns full details of a specific quote including quote_items
+        (as UUIDs), pricing, contact info, status, metadata, and
+        timestamps. Optionally specify a revision.
+      tags:
+        - Quotes
+      parameters:
+        - name: quoteNumber
+          in: path
+          description: The quote number.
+          required: true
+          schema:
+            type: integer
+            example: 37
+        - name: revision
+          in: query
+          description: >
+            Specific revision. If omitted, latest revision is returned.
+          required: false
+          schema:
+            type: integer
+            example: 1
+      responses:
+        "200":
+          description: Full quote details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/{quoteNumber}/status_change:
+    patch:
+      operationId: updateQuoteStatus
+      summary: Change a quote's status
+      description: >
+        Updates the status of an existing quote. Settable statuses
+        include outstanding, cancelled, trash, and lost.
+      tags:
+        - Quotes
+      parameters:
+        - name: quoteNumber
+          in: path
+          description: The quote number.
+          required: true
+          schema:
+            type: integer
+            example: 1090
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - outstanding
+                    - cancelled
+                    - trash
+                    - lost
+                  example: outstanding
+      responses:
+        "200":
+          description: Quote status updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  QUOTES — Items
+  # ════════════════════════════════════════════════
+  /quotes/public/items:
+    post:
+      operationId: createQuoteItem
+      summary: Create a quote item
+      description: Creates a new line item (part) within a quote.
+      tags:
+        - Quote Items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteItemCreate"
+      responses:
+        "201":
+          description: Quote item created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/items/{quoteItemUuid}:
+    get:
+      operationId: getQuoteItem
+      summary: Get a quote item by UUID
+      description: >
+        Returns full details of a single quote item including part
+        information, quantities, components, and operations.
+      tags:
+        - Quote Items
+      parameters:
+        - name: quoteItemUuid
+          in: path
+          description: The UUID of the quote item.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Quote item details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updateQuoteItem
+      summary: Update a quote item
+      description: Updates an existing quote item. Only provided fields change.
+      tags:
+        - Quote Items
+      parameters:
+        - name: quoteItemUuid
+          in: path
+          description: The UUID of the quote item.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteItemUpdate"
+      responses:
+        "200":
+          description: Quote item updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/items/{quoteItemUuid}/bulk_update_operations:
+    patch:
+      operationId: bulkUpdateQuoteItemOperations
+      summary: Bulk update operations on a quote item
+      description: >
+        Updates multiple operations on a quote item in a single request.
+      tags:
+        - Quote Items
+      parameters:
+        - name: quoteItemUuid
+          in: path
+          description: The UUID of the quote item.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operations:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/OperationBulkUpdate"
+      responses:
+        "200":
+          description: Operations updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  operations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  QUOTES — Operations
+  # ════════════════════════════════════════════════
+  /quotes/public/operations:
+    post:
+      operationId: createOperation
+      summary: Create an operation
+      description: Creates a new manufacturing operation on a quote item.
+      tags:
+        - Quote Operations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationCreate"
+      responses:
+        "201":
+          description: Operation created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/operations/{operationUuid}:
+    get:
+      operationId: getOperation
+      summary: Get an operation by UUID
+      tags:
+        - Quote Operations
+      parameters:
+        - name: operationUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Operation details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updateOperation
+      summary: Update an operation
+      tags:
+        - Quote Operations
+      parameters:
+        - name: operationUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationUpdate"
+      responses:
+        "200":
+          description: Operation updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    delete:
+      operationId: deleteOperation
+      summary: Delete an operation
+      tags:
+        - Quote Operations
+      parameters:
+        - name: operationUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  QUOTES — Add-Ons
+  # ════════════════════════════════════════════════
+  /quotes/public/add_ons/{addOnUuid}:
+    get:
+      operationId: getAddOn
+      summary: Get an add-on by UUID
+      tags:
+        - Quote Add-Ons
+      parameters:
+        - name: addOnUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Add-on details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddOn"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updateAddOn
+      summary: Update an add-on
+      tags:
+        - Quote Add-Ons
+      parameters:
+        - name: addOnUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddOnUpdate"
+      responses:
+        "200":
+          description: Add-on updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddOn"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    delete:
+      operationId: deleteAddOn
+      summary: Delete an add-on
+      tags:
+        - Quote Add-Ons
+      parameters:
+        - name: addOnUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  QUOTES — Discounts
+  # ════════════════════════════════════════════════
+  /quotes/public/discounts:
+    post:
+      operationId: createDiscount
+      summary: Create a discount
+      tags:
+        - Quote Discounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscountCreate"
+      responses:
+        "201":
+          description: Discount created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Discount"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/discounts/{discountUuid}:
+    get:
+      operationId: getDiscount
+      summary: Get a discount by UUID
+      tags:
+        - Quote Discounts
+      parameters:
+        - name: discountUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Discount details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Discount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updateDiscount
+      summary: Update a discount
+      tags:
+        - Quote Discounts
+      parameters:
+        - name: discountUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscountUpdate"
+      responses:
+        "200":
+          description: Discount updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Discount"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    delete:
+      operationId: deleteDiscount
+      summary: Delete a discount
+      tags:
+        - Quote Discounts
+      parameters:
+        - name: discountUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  QUOTES — Pricing Items
+  # ════════════════════════════════════════════════
+  /quotes/public/pricing_items/{pricingItemUuid}:
+    get:
+      operationId: getPricingItem
+      summary: Get a pricing item by UUID
+      tags:
+        - Quote Pricing Items
+      parameters:
+        - name: pricingItemUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pricing item details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updatePricingItem
+      summary: Update a pricing item
+      tags:
+        - Quote Pricing Items
+      parameters:
+        - name: pricingItemUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingItemUpdate"
+      responses:
+        "200":
+          description: Pricing item updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/pricing_item_quantities/{uuid}:
+    get:
+      operationId: getPricingItemQuantity
+      summary: Get a pricing item quantity by UUID
+      tags:
+        - Quote Pricing Items
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pricing item quantity details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingItemQuantity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updatePricingItemQuantity
+      summary: Update a pricing item quantity
+      tags:
+        - Quote Pricing Items
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingItemQuantityUpdate"
+      responses:
+        "200":
+          description: Pricing item quantity updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingItemQuantity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  QUOTES — Files
+  # ════════════════════════════════════════════════
+  /quotes/public/{quoteUuid}/files:
+    post:
+      operationId: uploadQuoteFile
+      summary: Upload a file to a quote
+      tags:
+        - Quote Files
+      parameters:
+        - name: quoteUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: File uploaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteFile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    get:
+      operationId: listQuoteFiles
+      summary: List files attached to a quote
+      tags:
+        - Quote Files
+      parameters:
+        - name: quoteUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: A list of files.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuoteFile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /quotes/public/{quoteUuid}/files/{fileUuid}:
+    get:
+      operationId: getQuoteFile
+      summary: Get a specific file from a quote
+      tags:
+        - Quote Files
+      parameters:
+        - name: quoteUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: fileUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: File details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteFile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    delete:
+      operationId: deleteQuoteFile
+      summary: Delete a file from a quote
+      tags:
+        - Quote Files
+      parameters:
+        - name: quoteUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: fileUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  ORDERS
+  # ════════════════════════════════════════════════
+  /orders/public:
+    get:
+      operationId: listOrders
+      summary: List orders
+      tags:
+        - Orders
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: A list of orders.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedOrderList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /orders/public/{orderNumber}:
+    get:
+      operationId: getOrder
+      summary: Get an order by number
+      tags:
+        - Orders
+      parameters:
+        - name: orderNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  ACCOUNTS
+  # ════════════════════════════════════════════════
+  /accounts/public:
+    get:
+      operationId: listAccounts
+      summary: List accounts
+      tags:
+        - Accounts
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: erp_code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of accounts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedAccountList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    post:
+      operationId: createAccount
+      summary: Create a new account
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountCreate"
+      responses:
+        "201":
+          description: Account created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /accounts/public/{id}:
+    get:
+      operationId: getAccount
+      summary: Get an account
+      tags:
+        - Accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Account details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updateAccount
+      summary: Update an account
+      tags:
+        - Accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountUpdate"
+      responses:
+        "200":
+          description: Account updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  CONTACTS
+  # ════════════════════════════════════════════════
+  /contacts/public:
+    get:
+      operationId: listContacts
+      summary: List contacts
+      tags:
+        - Contacts
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: account_id
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of contacts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedContactList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    post:
+      operationId: createContact
+      summary: Create a new contact
+      tags:
+        - Contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactCreate"
+      responses:
+        "201":
+          description: Contact created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /contacts/public/{id}:
+    get:
+      operationId: getContact
+      summary: Get a contact
+      tags:
+        - Contacts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contact details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updateContact
+      summary: Update a contact
+      tags:
+        - Contacts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactUpdate"
+      responses:
+        "200":
+          description: Contact updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  BILLING ADDRESSES
+  # ════════════════════════════════════════════════
+  /billing_addresses/public:
+    get:
+      operationId: listBillingAddresses
+      summary: List billing addresses for an account
+      tags:
+        - Billing Addresses
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: A list of billing addresses.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BillingAddress"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    post:
+      operationId: createBillingAddress
+      summary: Create a billing address
+      tags:
+        - Billing Addresses
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingAddressCreate"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAddress"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /billing_addresses/public/{id}:
+    get:
+      operationId: getBillingAddress
+      summary: Get a billing address
+      tags:
+        - Billing Addresses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Billing address details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAddress"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updateBillingAddress
+      summary: Update a billing address
+      tags:
+        - Billing Addresses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingAddressCreate"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAddress"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  FACILITIES
+  # ════════════════════════════════════════════════
+  /facilities/public:
+    get:
+      operationId: listFacilities
+      summary: List facilities for an account
+      tags:
+        - Facilities
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: A list of facilities.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Facility"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    post:
+      operationId: createFacility
+      summary: Create a facility
+      tags:
+        - Facilities
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FacilityCreate"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Facility"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /facilities/public/{id}:
+    get:
+      operationId: getFacility
+      summary: Get a facility
+      tags:
+        - Facilities
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Facility details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Facility"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updateFacility
+      summary: Update a facility
+      tags:
+        - Facilities
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FacilityUpdate"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Facility"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  PURCHASED COMPONENTS
+  # ════════════════════════════════════════════════
+  /purchased_components/public:
+    get:
+      operationId: searchPurchasedComponents
+      summary: Search purchased components
+      tags:
+        - Purchased Components
+      parameters:
+        - name: search
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching purchased components.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurchasedComponent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /purchased_components/public/{id}:
+    get:
+      operationId: getPurchasedComponent
+      summary: Get a purchased component
+      tags:
+        - Purchased Components
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Purchased component details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchasedComponent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    patch:
+      operationId: updatePurchasedComponent
+      summary: Update a purchased component
+      tags:
+        - Purchased Components
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchasedComponentUpdate"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchasedComponent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    delete:
+      operationId: deletePurchasedComponent
+      summary: Delete a purchased component
+      tags:
+        - Purchased Components
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  CUSTOM TABLES
+  # ════════════════════════════════════════════════
+  /custom_tables/public:
+    get:
+      operationId: listCustomTables
+      summary: List custom tables
+      tags:
+        - Custom Tables
+      responses:
+        "200":
+          description: A list of custom tables.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomTableSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /custom_tables/public/{name}:
+    post:
+      operationId: createCustomTable
+      summary: Create a custom table
+      tags:
+        - Custom Tables
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Table created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomTableSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    put:
+      operationId: updateCustomTable
+      summary: Update a custom table (full replace)
+      tags:
+        - Custom Tables
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomTablePayload"
+      responses:
+        "200":
+          description: Table updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomTableSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+    delete:
+      operationId: deleteCustomTable
+      summary: Delete a custom table
+      tags:
+        - Custom Tables
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  EVENTS
+  # ════════════════════════════════════════════════
+  /events/public:
+    get:
+      operationId: listEvents
+      summary: List events
+      tags:
+        - Events
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: dispatched
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: A list of events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedEventList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  INTEGRATION ACTIONS
+  # ════════════════════════════════════════════════
+  /integration_actions/public:
+    post:
+      operationId: createIntegrationAction
+      summary: Create an integration action
+      tags:
+        - Integration Actions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationActionCreate"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationAction"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /integration_actions/public/{id}:
+    patch:
+      operationId: updateIntegrationAction
+      summary: Update an integration action
+      tags:
+        - Integration Actions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationActionUpdate"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationAction"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  # ════════════════════════════════════════════════
+  #  INTEGRATION HEARTBEAT
+  # ════════════════════════════════════════════════
+  /integrations/public/heartbeat:
+    post:
+      operationId: postIntegrationHeartbeat
+      summary: Post an integration heartbeat
+      tags:
+        - Integration Heartbeat
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, degraded, unhealthy]
+                message:
+                  type: string
+      responses:
+        "200":
+          description: Heartbeat recorded.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+# ════════════════════════════════════════════════════════
+#  COMPONENTS
+# ════════════════════════════════════════════════════════
+components:
+  securitySchemes:
+    ApiTokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >
+        Pass your token as API-Token <your-token> in the Authorization
+        header. Generate from Settings > Integrations > API Token.
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Invalid request body or parameters.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing, invalid, or revoked API token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Rate limit exceeded (100 req/min).
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+          nullable: true
+
+    Address:
+      type: object
+      properties:
+        address1:
+          type: string
+          example: 137 Portland St.
+        address2:
+          type: string
+          nullable: true
+        city:
+          type: string
+          example: Boston
+        state:
+          type: string
+          example: MA
+        country:
+          type: string
+          example: USA
+        postal_code:
+          type: string
+          example: "02114"
+      required: [address1, city, state, country, postal_code]
+
+    Metadata:
+      type: object
+      description: >
+        Key-value metadata. Up to 25 keys (40 char max), values 500 char max.
+      additionalProperties:
+        type: string
+        maxLength: 500
+      example:
+        crm_id: "1581"
+
+    Salesperson:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+
+    # ─── Quotes ───────────────────────────────────
+    Quote:
+      type: object
+      description: >
+        A manufacturing quote. quote_items contains UUIDs of QuoteItem
+        objects retrieved via the Quote Items endpoints.
+      properties:
+        number:
+          type: integer
+          description: >
+            Quote number. With revision_number, forms the unique ID.
+          readOnly: true
+          example: 37
+        revision_number:
+          type: integer
+          nullable: true
+          readOnly: true
+          example: 1
+        status:
+          type: string
+          enum:
+            - draft
+            - outstanding
+            - expired
+            - cancelled
+            - partially_accepted
+            - accepted
+            - trash
+            - lost
+        contact_id:
+          type: integer
+          nullable: true
+          example: 1581
+        estimator:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of the estimator assigned to this quote.
+          example: 335c5770-8cd4-46d3-98a1-7c0e12251124
+        salesperson:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of the salesperson assigned to this quote.
+          example: 335c5770-8cd4-46d3-98a1-7c0e12251124
+        quote_items:
+          type: array
+          description: Array of QuoteItem UUIDs.
+          readOnly: true
+          items:
+            type: string
+            format: uuid
+          example:
+            - 335c5770-8cd4-46d3-98a1-7c0e12251124
+            - 414277a8-4144-49f6-9bc9-1bdcbc9f0749
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        sent_date:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        expired_date:
+          type: string
+          format: date-time
+          nullable: true
+        expired:
+          type: boolean
+          readOnly: true
+        export_controlled:
+          type: boolean
+          description: Whether the quote is ITAR/export controlled.
+          readOnly: true
+        digital_last_viewed_on:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last time the recipient viewed the quote.
+          readOnly: true
+        authenticated_pdf_quote_url:
+          type: string
+          format: url
+          nullable: true
+          readOnly: true
+        quote_notes:
+          type: string
+          nullable: true
+          description: Customer-facing notes.
+        private_notes:
+          type: string
+          nullable: true
+          description: Internal notes.
+        rfq_number:
+          type: string
+          nullable: true
+        manual_rfq_received_date:
+          type: string
+          format: date-time
+          nullable: true
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        erp_code:
+          type: string
+          nullable: true
+        tax_rate:
+          type: number
+          format: float
+          nullable: true
+        priority:
+          type: integer
+          nullable: true
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    QuoteCreate:
+      type: object
+      description: Request body for creating a new quote. All fields optional.
+      properties:
+        contact_id:
+          type: integer
+          nullable: true
+          description: The ID of the associated Contact.
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+        manual_rfq_received_date:
+          type: string
+          format: date-time
+          nullable: true
+        rfq_number:
+          type: string
+          nullable: true
+        expired_date:
+          type: string
+          format: date-time
+          nullable: true
+        estimator:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of the estimator to assign.
+          example: 335c5770-8cd4-46d3-98a1-7c0e12251124
+        salesperson:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of the salesperson to assign.
+          example: 335c5770-8cd4-46d3-98a1-7c0e12251124
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: The due date of the quote.
+        private_notes:
+          type: string
+          nullable: true
+          description: Internal notes regarding the quote.
+        quote_notes:
+          type: string
+          nullable: true
+          description: Customer-facing notes regarding the quote.
+        erp_code:
+          type: string
+          nullable: true
+        tax_rate:
+          type: number
+          format: float
+          nullable: true
+        priority:
+          type: integer
+          nullable: true
+
+    QuoteItem:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          readOnly: true
+        position:
+          type: integer
+        type:
+          type: string
+        part_number:
+          type: string
+          nullable: true
+        revision:
+          type: string
+          nullable: true
+        part_name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        material:
+          type: string
+          nullable: true
+        finish:
+          type: string
+          nullable: true
+        private_notes:
+          type: string
+          nullable: true
+        public_notes:
+          type: string
+          nullable: true
+        export_controlled:
+          type: boolean
+        quantities:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteItemQuantity"
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteItemComponent"
+        operations:
+          type: array
+          items:
+            type: string
+            format: uuid
+        purchased_components:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteItemPurchasedComponent"
+
+    QuoteItemCreate:
+      type: object
+      properties:
+        quote_uuid:
+          type: string
+          format: uuid
+        part_number:
+          type: string
+          nullable: true
+        part_name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        material:
+          type: string
+          nullable: true
+        finish:
+          type: string
+          nullable: true
+        private_notes:
+          type: string
+          nullable: true
+        public_notes:
+          type: string
+          nullable: true
+
+    QuoteItemUpdate:
+      type: object
+      properties:
+        part_number:
+          type: string
+          nullable: true
+        part_name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        material:
+          type: string
+          nullable: true
+        finish:
+          type: string
+          nullable: true
+        private_notes:
+          type: string
+          nullable: true
+        public_notes:
+          type: string
+          nullable: true
+
+    QuoteItemQuantity:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: double
+        total_price:
+          type: number
+          format: double
+        lead_time_days:
+          type: integer
+          nullable: true
+        markup_1_price:
+          type: number
+          format: double
+          nullable: true
+        markup_2_price:
+          type: number
+          format: double
+          nullable: true
+        setup_cost:
+          type: number
+          format: double
+          nullable: true
+        material_cost:
+          type: number
+          format: double
+          nullable: true
+        labor_cost:
+          type: number
+          format: double
+          nullable: true
+
+    QuoteItemComponent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        part_number:
+          type: string
+          nullable: true
+        part_name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+
+    QuoteItemPurchasedComponent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        oem_part_number:
+          type: string
+        internal_part_number:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        piece_price:
+          type: number
+          format: double
+          description: Price per piece (4 decimal places).
+        quantity:
+          type: integer
+
+    Operation:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        position:
+          type: integer
+        runtime:
+          type: number
+          format: double
+          nullable: true
+        setup_time:
+          type: number
+          format: double
+          nullable: true
+        cost:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    OperationCreate:
+      type: object
+      properties:
+        quote_item_uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        position:
+          type: integer
+        runtime:
+          type: number
+          format: double
+          nullable: true
+        setup_time:
+          type: number
+          format: double
+          nullable: true
+        cost:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    OperationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        position:
+          type: integer
+        runtime:
+          type: number
+          format: double
+          nullable: true
+        setup_time:
+          type: number
+          format: double
+          nullable: true
+        cost:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    OperationBulkUpdate:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        position:
+          type: integer
+        runtime:
+          type: number
+          format: double
+          nullable: true
+        setup_time:
+          type: number
+          format: double
+          nullable: true
+        cost:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    AddOn:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+        notes:
+          type: string
+          nullable: true
+
+    AddOnUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+        notes:
+          type: string
+          nullable: true
+
+    Discount:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+          nullable: true
+        percent:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    DiscountCreate:
+      type: object
+      properties:
+        quote_uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+          nullable: true
+        percent:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    DiscountUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+          nullable: true
+        percent:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    PricingItem:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        unit_price:
+          type: number
+          format: double
+        total_price:
+          type: number
+          format: double
+        notes:
+          type: string
+          nullable: true
+
+    PricingItemUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        unit_price:
+          type: number
+          format: double
+        notes:
+          type: string
+          nullable: true
+
+    PricingItemQuantity:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          readOnly: true
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: double
+        total_price:
+          type: number
+          format: double
+        lead_time_days:
+          type: integer
+          nullable: true
+
+    PricingItemQuantityUpdate:
+      type: object
+      properties:
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: double
+        lead_time_days:
+          type: integer
+          nullable: true
+
+    QuoteFile:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          readOnly: true
+        filename:
+          type: string
+        url:
+          type: string
+          format: url
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+
+    # ─── Orders ───────────────────────────────────
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        number:
+          type: integer
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        quote_number:
+          type: integer
+          readOnly: true
+        quote_revision_number:
+          type: integer
+          readOnly: true
+        contact_id:
+          type: integer
+          nullable: true
+        salesperson:
+          type: string
+          format: uuid
+          nullable: true
+        order_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        private_notes:
+          type: string
+          nullable: true
+        ship_to:
+          $ref: "#/components/schemas/Address"
+        billing_address:
+          $ref: "#/components/schemas/Address"
+        tax_rate:
+          type: number
+          format: double
+          nullable: true
+        tax_cost:
+          type: number
+          format: double
+          nullable: true
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        position:
+          type: integer
+        part_number:
+          type: string
+          nullable: true
+        part_name:
+          type: string
+          nullable: true
+        material:
+          type: string
+          nullable: true
+        finish:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: double
+        total_price:
+          type: number
+          format: double
+        lead_time_days:
+          type: integer
+          nullable: true
+
+    PaginatedOrderList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          nullable: true
+        previous:
+          type: string
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+
+    # ─── Accounts ─────────────────────────────────
+    Account:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        erp_code:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        phone_ext:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        payment_terms:
+          type: string
+          nullable: true
+        payment_terms_period:
+          type: integer
+          nullable: true
+        purchase_orders_enabled:
+          type: boolean
+          nullable: true
+        tax_exempt:
+          type: boolean
+          nullable: true
+        tax_rate:
+          type: number
+          format: double
+          nullable: true
+        credit_line:
+          type: number
+          format: double
+          nullable: true
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+        sold_to_address:
+          $ref: "#/components/schemas/Address"
+        billing_addresses:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/BillingAddress"
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    AccountCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        erp_code:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        phone_ext:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        payment_terms:
+          type: string
+          nullable: true
+        payment_terms_period:
+          type: integer
+          nullable: true
+        purchase_orders_enabled:
+          type: boolean
+          nullable: true
+        tax_exempt:
+          type: boolean
+          nullable: true
+        tax_rate:
+          type: number
+          format: double
+          nullable: true
+        credit_line:
+          type: number
+          format: double
+          nullable: true
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+        sold_to_address:
+          $ref: "#/components/schemas/Address"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    AccountUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        erp_code:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        phone_ext:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        payment_terms:
+          type: string
+          nullable: true
+        payment_terms_period:
+          type: integer
+          nullable: true
+        purchase_orders_enabled:
+          type: boolean
+          nullable: true
+        tax_exempt:
+          type: boolean
+          nullable: true
+        tax_rate:
+          type: number
+          format: double
+          nullable: true
+        credit_line:
+          type: number
+          format: double
+          nullable: true
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+        sold_to_address:
+          $ref: "#/components/schemas/Address"
+        metadata:
+          $ref: "#/components/schemas/Metadata"
+
+    PaginatedAccountList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          nullable: true
+        previous:
+          type: string
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Account"
+
+    # ─── Contacts ─────────────────────────────────
+    Contact:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        account_id:
+          type: integer
+          nullable: true
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        phone_ext:
+          type: string
+          nullable: true
+        address:
+          $ref: "#/components/schemas/Address"
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+
+    ContactCreate:
+      type: object
+      required: [email, first_name, last_name]
+      properties:
+        account_id:
+          type: integer
+          nullable: true
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        phone_ext:
+          type: string
+          nullable: true
+        address:
+          $ref: "#/components/schemas/Address"
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+
+    ContactUpdate:
+      type: object
+      properties:
+        account_id:
+          type: integer
+          nullable: true
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        phone_ext:
+          type: string
+          nullable: true
+        address:
+          $ref: "#/components/schemas/Address"
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+
+    PaginatedContactList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          nullable: true
+        previous:
+          type: string
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+
+    BillingAddress:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        address1:
+          type: string
+        address2:
+          type: string
+          nullable: true
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+        postal_code:
+          type: string
+
+    BillingAddressCreate:
+      type: object
+      required: [address1, city, state, country, postal_code]
+      properties:
+        address1:
+          type: string
+        address2:
+          type: string
+          nullable: true
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+        postal_code:
+          type: string
+
+    Facility:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        account_id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        attention:
+          type: string
+          nullable: true
+        address:
+          $ref: "#/components/schemas/Address"
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+
+    FacilityCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        attention:
+          type: string
+          nullable: true
+        address:
+          $ref: "#/components/schemas/Address"
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+
+    FacilityUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        attention:
+          type: string
+          nullable: true
+        address:
+          $ref: "#/components/schemas/Address"
+        salesperson:
+          $ref: "#/components/schemas/Salesperson"
+
+    PurchasedComponent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        oem_part_number:
+          type: string
+        internal_part_number:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        piece_price:
+          type: number
+          format: double
+        properties:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchasedComponentCustomProperty"
+
+    PurchasedComponentUpdate:
+      type: object
+      properties:
+        oem_part_number:
+          type: string
+        internal_part_number:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        piece_price:
+          type: number
+          format: double
+
+    PurchasedComponentCustomProperty:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+
+    CustomTableSummary:
+      type: object
+      properties:
+        name:
+          type: string
+        config:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomTableColumnConfig"
+        row_count:
+          type: integer
+          readOnly: true
+
+    CustomTableColumnConfig:
+      type: object
+      required: [column_name, value_type]
+      properties:
+        column_name:
+          type: string
+        value_type:
+          type: string
+          enum: [string, numeric, boolean]
+        is_for_unique_key:
+          type: boolean
+          default: false
+
+    CustomTablePayload:
+      type: object
+      required: [config]
+      properties:
+        config:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomTableColumnConfig"
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        type:
+          type: string
+        dispatched:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+
+    PaginatedEventList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          nullable: true
+        previous:
+          type: string
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+
+    IntegrationAction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        status:
+          type: string
+          enum: [queued, in_progress, completed, failed, cancelled, timed_out]
+        status_message:
+          type: string
+          nullable: true
+        integration_action_definition_id:
+          type: integer
+        related_object_type:
+          type: string
+          nullable: true
+        related_object_id:
+          type: integer
+          nullable: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+
+    IntegrationActionCreate:
+      type: object
+      required: [status, integration_action_definition_id]
+      properties:
+        status:
+          type: string
+          enum: [queued, in_progress, completed, failed, cancelled, timed_out]
+        status_message:
+          type: string
+          nullable: true
+        integration_action_definition_id:
+          type: integer
+        related_object_type:
+          type: string
+          nullable: true
+        related_object_id:
+          type: integer
+          nullable: true
+
+    IntegrationActionUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [queued, in_progress, completed, failed, cancelled, timed_out]
+        status_message:
+          type: string
+          nullable: true
