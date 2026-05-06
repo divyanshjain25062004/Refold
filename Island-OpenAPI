@@ -1,0 +1,831 @@
+openapi: 3.1.0
+info:
+  title: Island Enterprise Browser API — Scrut Access Review subset
+  version: "1.0.0"
+  summary: |
+    Subset of the Island Enterprise Browser Management API needed to power
+    Scrut's two compliance use cases:
+      1. User Access Data — fetch active console administrators and their roles
+      2. Device Inventory — fetch device details
+  description: |
+    All paths, query parameters, request bodies, response shapes and enums in
+    this document are taken verbatim from Island's in-product API documentation
+    at https://documentation.island.io/apidocs and from real, redacted sample
+    responses captured from the live API.
+
+    ## Authentication
+    Every request requires a custom `api-key` HTTP header. The key is generated
+    in the Management Console under:
+    Modules → Platform Settings → System Settings → Integrations → API → + Create
+
+    Roles available on a key: Full Admin, System Admin, Read Only.
+    The plaintext key value is shown once at creation; rotate by deactivating
+    and deleting the existing key.
+
+    ## Use case 1 — User Access Data
+    Compliance flow:
+      1. `GET /api/external/v1/users` with no filter (or with paging)
+      2. Client-side filter to retain users where:
+           userType   == "Management"   (drops standard browser users)
+           userStatus == "Active"       (drops Invited, Blocked, Revoked, etc.)
+      3. `GET /api/external/v1/roles`
+      4. For each kept user: scan every role's `identities[]` array; if any
+         identity's `value` matches the user's `email` or `userId`, attach
+         that role's `name` to the user. A user can match multiple roles —
+         comma-join the role names for the final access-review row.
+      5. Emit per-user record:  email, userType (always "Management"),
+         userStatus (always "Active"), roleNames (comma-separated).
+
+    ## Use case 2 — Device Inventory
+    `POST /api/external/v1/devices` with a structured query body. Use
+    `selectFields` to keep payloads small; use `filters[]` for server-side
+    filtering on any of the documented `DeviceQueryField` values; use
+    `limit`/`offset` for paging.
+
+  contact:
+    name: Island Technology, Inc.
+    url: https://www.island.io
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://management.island.io
+    description: |
+      US production. Confirmed via real curl from the in-product docs.
+  - url: https://eu.management.island.io
+    description: |
+      EU production. Confirmed via Microsoft Sentinel data-connector docs.
+  - url: https://management.staging.island.io
+    description: |
+      Staging. Confirmed via in-product docs curl example. May require
+      tenant-side IP allowlisting.
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Users
+    description: Browser-user inventory.
+  - name: Roles
+    description: Role definitions and the identities assigned to each role.
+  - name: Devices
+    description: Devices that have the Island browser installed.
+
+paths:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Users
+  # ─────────────────────────────────────────────────────────────────────────
+  /api/external/v1/users:
+    get:
+      tags: [Users]
+      operationId: getAllBrowserUsers
+      summary: Get all browser users that match the specified simple filter
+      description: |
+        Returns the browser users known to the Management Console.
+
+        Note on filtering: despite the page title, there is no `simpleFilter`
+        query parameter. Filtering is done via the dedicated query params
+        below (date range, sort, status visibility) and via client-side
+        post-filtering of the response (this is how Scrut's access-review
+        flow filters on `userType == "Management"` and
+        `userStatus == "Active"`).
+
+        Source: https://documentation.island.io/apidocs/get-all-browser-users-that-match-the-specified-simple-filter
+      parameters:
+        - in: query
+          name: Start
+          schema: { type: string, format: date-time }
+          example: 2024-05-29T17:00:00Z
+          description: |
+            Lower bound on `createdDate` / `updatedDate` (depending on
+            tenant config). Nullable.
+        - in: query
+          name: End
+          schema: { type: string, format: date-time }
+          example: 2024-05-29T17:00:00Z
+          description: Upper bound on the same date field. Nullable.
+        - in: query
+          name: Limit
+          schema: { type: integer, format: int32 }
+          description: Max results to return (page size).
+        - in: query
+          name: Offset
+          schema: { type: integer, format: int32 }
+          description: Zero-based offset into the result set.
+        - in: query
+          name: SortBy
+          schema:
+            type: string
+            enum:
+              - UserId
+              - LastLogin
+              - LastName
+              - FirstName
+              - Email
+              - InvitationDate
+              - UserType
+              - UserStatus
+              - CreatedDate
+              - IsArchived
+              - Group
+              - UserSource
+        - in: query
+          name: SortDirection
+          schema:
+            type: string
+            enum: [Asc, Desc]
+        - in: query
+          name: IncludeAllUserStatus
+          schema: { type: boolean }
+          description: |
+            When false (default), the API may hide users in certain
+            terminal statuses. Set to `true` to receive every user
+            regardless of status — required for a complete access review.
+      responses:
+        '200':
+          description: Page of users wrapped in a `users` envelope.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserListResponse' }
+              examples:
+                twoUsers:
+                  summary: Two users — one expired invite, one active
+                  value:
+                    users:
+                      - userId: "auth0|7f3b6620-42e6-4f57-81ee-b8f3803a58a0"
+                        userType: "Browser"
+                        userStatus: "InvitationExpired"
+                        connectionName: "Username-Password-Authentication"
+                        allowedTenantsIds: []
+                        firstName: "Aditya"
+                        lastName: "Parab"
+                        email: "adityaparab@scrut.io"
+                        lastLogin: "0001-01-01T00:00:00Z"
+                        lastSeen: "0001-01-01T00:00:00Z"
+                        invitationDate: "2026-03-16T21:11:59.433812Z"
+                        emailVerified: false
+                        userSource: "Email"
+                        tenantId: "percheron-dev"
+                        id: "dd1b5fb4-d701-472f-99cb-7a19ad974c86"
+                        createdDate: "2026-03-16T21:12:00.072473Z"
+                        updatedDate: "2026-03-16T21:12:00.072473Z"
+                      - userId: "auth0|75935bc2-0c07-495e-94bb-35ddb57566ee"
+                        userType: "Browser"
+                        userStatus: "Active"
+                        connectionName: "Username-Password-Authentication"
+                        allowedTenantsIds: []
+                        firstName: "Percheron"
+                        lastName: "Test"
+                        email: "percherontest@hotmail.com"
+                        lastLogin: "2026-04-30T22:08:54.527566Z"
+                        lastSeen: "2026-05-01T16:24:09.143827Z"
+                        invitationDate: "2026-04-28T18:01:59.957036Z"
+                        emailVerified: true
+                        userSource: "Email"
+                        claims: {}
+                        tenantId: "percheron-dev"
+                        id: "019dd541-5022-7102-ba59-ce7a83f0e675"
+                        createdDate: "2026-04-28T18:02:00.610327Z"
+                        updatedDate: "2026-05-01T16:24:09.143827Z"
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Roles
+  # ─────────────────────────────────────────────────────────────────────────
+  /api/external/v1/roles:
+    get:
+      tags: [Roles]
+      operationId: getAllRoles
+      summary: Get all roles
+      description: |
+        Returns every role defined in the tenant, including built-in
+        ("predefined") roles and custom roles, along with the identities
+        (users, groups, custom selectors, machine tokens) assigned to
+        each role.
+
+        Response is a **bare JSON array** at the top level — unlike the
+        `/users` endpoint there is no envelope object.
+
+        Source: https://documentation.island.io/apidocs/get-all-roles
+      responses:
+        '200':
+          description: Array of roles.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Role' }
+              examples:
+                singleRole:
+                  summary: Schema example
+                  value:
+                    - id: "string"
+                      createdDate: "2026-05-06T07:29:12.932Z"
+                      updatedDate: "2026-05-06T07:29:12.932Z"
+                      tenantId: "string"
+                      updatedByUser:
+                        name: "string"
+                      name: "string"
+                      description: "string"
+                      identities:
+                        - type: "User"
+                          attribute: "string"
+                          value: "string"
+                      featuresPermissions:
+                        propertyA: "Read"
+                      excludedFeatures:
+                        propertyB: "Read"
+                      predefined: "FullAdmin"
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Devices
+  # ─────────────────────────────────────────────────────────────────────────
+  /api/external/v1/devices:
+    post:
+      tags: [Devices]
+      operationId: getDevices
+      summary: Get a list of all devices
+      description: |
+        Searches the device inventory using a structured query. This is a
+        POST endpoint because the search predicate can be large (multiple
+        filter expressions, each with arrays of strings, ranges, etc.).
+
+        Common patterns:
+          - Pull everything:                {}
+          - Active only:                    { "filters": [{ "field": "DeviceStatus", "eq": ["Active"] }] }
+          - macOS only, paged:              { "filters": [{ "field": "OsPlatform", "eq": ["MacOs"] }], "limit": 100, "offset": 0 }
+          - Skinny payload for inventory:   { "selectFields": ["DeviceId","MachineName","Email","OsPlatform","DeviceStatus","LastSeen"] }
+
+        Source: https://documentation.island.io/apidocs (Get a list of all devices)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeviceQuery' }
+            examples:
+              everything:
+                summary: Pull everything (small tenants only)
+                value: {}
+              activeMacs:
+                summary: Active macOS devices, first 100
+                value:
+                  filters:
+                    - field: OsPlatform
+                      eq: [MacOs]
+                    - field: DeviceStatus
+                      eq: [Active]
+                  limit: 100
+                  offset: 0
+                  sortBy: LastSeen
+                  sortDirection: Desc
+              skinnyInventory:
+                summary: Compliance-style inventory pull (only the fields Scrut needs)
+                value:
+                  selectFields:
+                    - DeviceId
+                    - MachineName
+                    - Email
+                    - OsPlatform
+                    - OsVersion
+                    - DeviceStatus
+                    - LastSeen
+                    - DiskEncrypted
+                    - IsManaged
+                  limit: 500
+      responses:
+        '200':
+          description: Device search result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeviceListResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+components:
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: api-key
+      description: |
+        The Island-issued API key, sent in the custom `api-key` HTTP header.
+
+        Confirmed via the in-product docs (every endpoint page shows
+        `Header parameter name: api-key`) and via a successful real-world
+        request whose verbatim curl is:
+
+          curl --location 'https://management.island.io/api/external/v1/users' \
+               --header 'accept: application/json' \
+               --header 'api-key: <YOUR_API_KEY>'
+
+  responses:
+    BadRequest:
+      description: Malformed request body or query.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid api-key header.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: API key does not have the required role for this resource.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Too many requests.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+
+    Error:
+      type: object
+      properties:
+        code:    { type: string }
+        message: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+      required: [message]
+
+    # ── Users ────────────────────────────────────────────────────────────
+    UserListResponse:
+      type: object
+      description: Envelope returned by `GET /users`.
+      properties:
+        users:
+          type: array
+          items: { $ref: '#/components/schemas/User' }
+      required: [users]
+
+    User:
+      type: object
+      description: |
+        A single browser user. Field set is taken from a real, redacted API
+        response.
+
+        For the Scrut access-review use case the relevant fields are:
+          - email          → Scrut "Email Address"
+          - userType       → Scrut "User Type"   (filter to "Management")
+          - userStatus     → Scrut "User Status" (filter to "Active")
+          - email / userId → join key for matching against role identities
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Tenant-internal primary key. Used for joins inside Island.
+        userId:
+          type: string
+          description: |
+            External / IdP-style user identifier, e.g.
+            `auth0|7f3b6620-42e6-4f57-81ee-b8f3803a58a0`.
+            Distinct from `id`. Often shows up as the value of a
+            `RoleIdentityDto.value` when the identity type is `User`.
+        userType:
+          type: string
+          description: |
+            Whether this account is a console administrator or a regular
+            browser user. Scrut's access review filters to `Management`.
+          enum:
+            - Browser
+            - Management
+            # Note: the docs do not publish a closed enum for userType;
+            # the two values above are the ones observed in production
+            # samples. Treat as open for forward-compat.
+        userStatus:
+          type: string
+          description: |
+            Account lifecycle state. Scrut's access review filters to
+            `Active` only. Other observed values include
+            `InvitationExpired`. The docs reference additional terminal
+            states (Invited, Blocked, Revoked, Suspicious, Expired) that
+            may surface only when `IncludeAllUserStatus=true`.
+        connectionName:
+          type: string
+          description: |
+            IdP connection that authenticated this user
+            (e.g. `Username-Password-Authentication`, a SAML connection
+            name, etc.).
+        allowedTenantsIds:
+          type: array
+          items: { type: string }
+          description: |
+            Tenants this user is allowed to act on, when the account is
+            cross-tenant. Empty for normal single-tenant accounts.
+        firstName: { type: string }
+        lastName:  { type: string }
+        email:
+          type: string
+          format: email
+          description: Primary join key for Scrut role correlation.
+        lastLogin:
+          type: string
+          format: date-time
+          description: |
+            Timestamp of last successful login. Zero value
+            (`0001-01-01T00:00:00Z`) means "never logged in".
+        lastSeen:
+          type: string
+          format: date-time
+          description: Last time the user was observed by the platform.
+        invitationDate:
+          type: string
+          format: date-time
+        emailVerified: { type: boolean }
+        userSource:
+          type: string
+          description: How the account entered the system, e.g. `Email`.
+        claims:
+          type: object
+          additionalProperties: true
+          description: Free-form claim bag from the IdP.
+        tenantId:    { type: string }
+        createdDate: { type: string, format: date-time }
+        updatedDate: { type: string, format: date-time }
+      required: [id, email, userType, userStatus]
+
+    # ── Roles ────────────────────────────────────────────────────────────
+    Role:
+      type: object
+      description: |
+        A role definition. Roles tie a permission profile to one or more
+        identities (users, groups, custom selectors, machine tokens).
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdDate:
+          type: string
+          format: date-time
+          nullable: true
+        updatedDate:
+          type: string
+          format: date-time
+          nullable: true
+        tenantId:
+          type: string
+          nullable: true
+        updatedByUser:
+          $ref: '#/components/schemas/AdminDto'
+        name:
+          type: string
+          nullable: true
+          description: |
+            Human-readable role name. This is the value Scrut joins onto
+            users for the access-review report. When a user belongs to
+            multiple roles, comma-join the names.
+        description:
+          type: string
+          nullable: true
+        identities:
+          type: array
+          nullable: true
+          items: { $ref: '#/components/schemas/RoleIdentityDto' }
+          description: |
+            The identities (users, groups, custom selectors, machine
+            tokens) that have this role. Match a user to a role by
+            scanning these and comparing `identity.value` to the user's
+            `email` or `userId`.
+        featuresPermissions:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+            enum: [Read, Write]
+          description: |
+            Map of feature-key → permission level granted to this role.
+        excludedFeatures:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+            enum: [Read, Write]
+          description: |
+            Map of feature-key → permission level explicitly denied for
+            this role (overrides `featuresPermissions`).
+        predefined:
+          type: string
+          nullable: true
+          description: |
+            For built-in roles, the canonical role identifier. Null for
+            custom roles.
+          enum:
+            - FullAdmin
+            - ReadOnly
+            - SystemAdmin
+            - SecurityAdmin
+            - ReadOnlySecurityAdmin
+            - SecurityWithoutDataAdmin
+            - SystemWithoutDataAdmin
+            - DocumentationOnly
+            - RemoteSupportAdmin
+            - CustomerPortalAccess
+      required: [id]
+
+    AdminDto:
+      type: object
+      description: Lightweight reference to an admin user.
+      properties:
+        name:
+          type: string
+          nullable: true
+
+    RoleIdentityDto:
+      type: object
+      description: |
+        A single (identity-type, value) pair attached to a role. The
+        meaning of `value` depends on `type`:
+          - User         → user email or userId
+          - Group        → group name or group id
+          - Custom       → tenant-specific selector
+          - MachineToken → API-key / token identifier
+      properties:
+        type:
+          type: string
+          enum: [User, Group, Custom, MachineToken]
+        attribute:
+          type: string
+          nullable: true
+        value:
+          type: string
+          nullable: true
+      required: [type]
+
+    # ── Devices ──────────────────────────────────────────────────────────
+    DeviceQuery:
+      type: object
+      description: Search query body for `POST /devices`.
+      properties:
+        filters:
+          type: array
+          nullable: true
+          items: { $ref: '#/components/schemas/QueryOfDeviceQueryField' }
+        start:
+          type: string
+          format: date-time
+          nullable: true
+        end:
+          type: string
+          format: date-time
+          nullable: true
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
+        sortBy:
+          $ref: '#/components/schemas/DeviceQueryField'
+        sortBySubProperty:
+          type: string
+          nullable: true
+        sortDirection:
+          type: string
+          enum: [Asc, Desc]
+          description: Sort direction for ORDER BY clause expressions.
+        freeTextSearchFilter:
+          type: string
+          nullable: true
+        freeTextSearchFilterFields:
+          type: array
+          items: { $ref: '#/components/schemas/DeviceQueryField' }
+        selectFields:
+          type: array
+          nullable: true
+          items: { $ref: '#/components/schemas/DeviceQueryField' }
+          description: |
+            Restricts the per-device response payload to just these fields.
+            Strongly recommended for inventory pulls — full device records
+            are large.
+
+    QueryOfDeviceQueryField:
+      type: object
+      description: |
+        A single filter clause. Combine multiple clauses by adding more
+        items to `filters[]`; clauses are AND'd together.
+      properties:
+        field:
+          $ref: '#/components/schemas/DeviceQueryField'
+        contains:
+          type: array
+          nullable: true
+          items: { type: string, nullable: true }
+        notContains:
+          type: array
+          nullable: true
+          items: { type: string, nullable: true }
+        in:
+          type: array
+          nullable: true
+          items: { type: string, nullable: true }
+        notIn:
+          type: array
+          nullable: true
+          items: { type: string, nullable: true }
+        eq:
+          type: array
+          nullable: true
+          items: { type: string, nullable: true }
+        inRanges:
+          type: array
+          nullable: true
+          items: { $ref: '#/components/schemas/InRange' }
+        isNull:
+          type: boolean
+        isNotNull:
+          type: boolean
+        caseSensitive:
+          type: boolean
+        subProperty:
+          type: string
+          nullable: true
+
+    InRange:
+      type: object
+      description: |
+        Inclusive range filter. Used for date / numeric `field` values.
+        Exact shape (from/to vs min/max) follows Island's internal
+        convention; populate the bounds you need.
+      properties:
+        from:
+          type: string
+          nullable: true
+        to:
+          type: string
+          nullable: true
+
+    DeviceQueryField:
+      type: string
+      description: |
+        Every field the device search supports — for filtering, sorting,
+        full-text search, and column selection. Verbatim from the docs.
+      enum:
+        - DeviceId
+        - MachineName
+        - LastSeen
+        - UserId
+        - MachineId
+        - UserName
+        - Email
+        - OsVersion
+        - OsPlatform
+        - DeviceStatus
+        - OsUserName
+        - AntiMalwareProducts
+        - LatestSecurityUpdateId
+        - IslandPlatform
+        - MachineModel
+        - SerialNumber
+        - BrowserVersion
+        - ChromiumVersion
+        - ExtensionVersion
+        - PolicyUpdateTime
+        - DiskEncrypted
+        - Status
+        - SpmProtected
+        - InternalIpAddress
+        - ExternalIpAddress
+        - OsDomain
+        - SystemIntegrityProtection
+        - OsFirewallEnabled
+        - OsScreenLockEnabled
+        - IsVirtualMachine
+        - MdmEnrolled
+        - MdmProvider
+        - MdmTopic
+        - MdmTenantName
+        - BrowserName
+        - AuthMethod
+        - IsContainer
+        - CrowdstrikeZtaScore
+        - CrowdstrikeCid
+        - IsJailbroken
+        - MacAddresses
+        - Architecture
+        - RamSize
+        - CpuModel
+        - SecureBoot
+        - CreatedDate
+        - SyncEnabled
+        - ChassisType
+        - IsDeviceAttested
+        - IsSystemLevelInstall
+        - OsCodeName
+        - Country
+        - CountryCode
+        - BrowserUpdateStatus
+        - IsDefaultBrowser
+        - MdmCompliant
+        - ExtensionUtilityVersion
+        - MobileEnrollmentType
+        - AzureTenantId
+        - Manufacturer
+        - CrowdstrikeAgentId
+        - IsGatekeeperEnabled
+        - GatekeeperVersion
+        - DeviceType
+        - IslandMdmCustomKey
+        - StorageCapacity
+        - InstalledExtensions
+        - UpdaterVersion
+        - WindowsActivationId
+        - WindowsLicenseStatus
+        - MamEnrolled
+        - EndpointAgentDeviceId
+        - EndpointAgentVersion
+        - SpmVersion
+        - WindowsCodename
+        - BrandName
+        - BrandId
+        - IsTpmEnabled
+        - IsDirectoryJoined
+        - MobileStoreId
+        - IsManaged
+        - ExtensionCustomAttr
+        - CbeKeypairSource
+
+    DeviceListResponse:
+      type: object
+      description: |
+        Response envelope for `POST /devices`. Exact shape (envelope name,
+        whether a paging cursor is included) is to be confirmed with a
+        live response — the docs page in your screenshots cuts off
+        before the response section. Modeled here as a `devices`
+        envelope by analogy with `/users`; if the live response omits
+        the envelope, callers should accept either form.
+      properties:
+        devices:
+          type: array
+          items: { $ref: '#/components/schemas/Device' }
+        total:
+          type: integer
+          description: Total matching device count (if returned).
+      required: [devices]
+
+    Device:
+      type: object
+      description: |
+        A single device record. The full attribute set is enormous (see
+        DeviceQueryField for the complete list); the properties below are
+        the fields most relevant to compliance / inventory use cases plus
+        a free-form passthrough for the rest.
+
+        For tight integrations, request `selectFields` in the query body
+        to limit the response to just the fields you need.
+      properties:
+        id:                       { type: string }
+        deviceId:                 { type: string }
+        machineId:                { type: string }
+        machineName:              { type: string }
+        machineModel:             { type: string }
+        serialNumber:             { type: string }
+        userId:                   { type: string }
+        userName:                 { type: string }
+        email:                    { type: string, format: email }
+        osPlatform:               { type: string, example: MacOs }
+        osVersion:                { type: string }
+        osUserName:               { type: string }
+        osDomain:                 { type: string }
+        osCodeName:               { type: string }
+        islandPlatform:           { type: string, example: Browser }
+        browserName:              { type: string, example: Island }
+        browserVersion:           { type: string }
+        chromiumVersion:          { type: string }
+        extensionVersion:         { type: string }
+        deviceStatus:             { type: string, example: Active }
+        status:                   { type: string }
+        lastSeen:                 { type: string, format: date-time }
+        policyUpdateTime:         { type: string, format: date-time }
+        createdDate:              { type: string, format: date-time }
+        updatedDate:              { type: string, format: date-time }
+        diskEncrypted:            { type: boolean }
+        systemIntegrityProtection:{ type: boolean }
+        osFirewallEnabled:        { type: boolean }
+        osScreenLockEnabled:      { type: boolean }
+        isVirtualMachine:         { type: boolean }
+        isManaged:                { type: boolean }
+        mdmEnrolled:              { type: boolean }
+        mdmCompliant:             { type: boolean }
+        mdmProvider:              { type: string }
+        internalIpAddress:        { type: string }
+        externalIpAddress:        { type: string }
+        macAddresses:             { type: string }
+        architecture:             { type: string, example: x86_64 }
+        ramSize:                  { type: integer, description: "Gigabytes." }
+        cpuModel:                 { type: string }
+        antiMalwareProducts:
+          type: array
+          items: { type: string }
+      additionalProperties: true
