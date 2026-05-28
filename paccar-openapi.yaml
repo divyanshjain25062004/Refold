@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: PACCAR Parts Catalog API
+  description: >
+    Real-time OEM parts availability, pricing, and lead times from the
+    PACCAR parts network. Used by Karmak Fusion to surface live inventory
+    data inside the dealer DMS.
+  version: 1.0.0
+
+servers:
+  - url: https://paccar-production.up.railway.app
+    description: Production
+
+paths:
+
+  /parts:
+    get:
+      operationId: listParts
+      summary: List all parts
+      description: >
+        Returns the full parts catalog with optional filters for OEM,
+        category, and availability status.
+      parameters:
+        - name: oem
+          in: query
+          required: false
+          description: Filter by OEM manufacturer (e.g. PACCAR, Cummins, Volvo)
+          schema:
+            type: string
+            example: Cummins
+        - name: category
+          in: query
+          required: false
+          description: Filter by part category (e.g. Engine, Emissions, Drivetrain)
+          schema:
+            type: string
+            example: Engine
+        - name: availability
+          in: query
+          required: false
+          description: Filter by stock status
+          schema:
+            type: string
+            enum: [In Stock, Limited Stock, Backordered]
+      responses:
+        '200':
+          description: List of parts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 8
+                  parts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Part'
+
+  /parts/search:
+    get:
+      operationId: searchParts
+      summary: Search parts
+      description: >
+        Full-text search across part number, description, OEM name,
+        and compatible vehicle models.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Search term
+          schema:
+            type: string
+            example: injector
+        - name: oem
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching parts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  parts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Part'
+
+  /parts/{partNumber}:
+    get:
+      operationId: getPartByNumber
+      summary: Get a single part by part number
+      description: >
+        Returns full detail for a specific OEM part number including
+        pricing, availability, warehouse location, and compatible vehicles.
+      parameters:
+        - name: partNumber
+          in: path
+          required: true
+          description: The OEM part number (e.g. 3944525)
+          schema:
+            type: string
+            example: "3944525"
+      responses:
+        '200':
+          description: Part detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Part'
+        '404':
+          description: Part not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Part not found
+                  partNumber:
+                    type: string
+
+components:
+  schemas:
+    Part:
+      type: object
+      properties:
+        partNumber:
+          type: string
+          example: "3944525"
+        description:
+          type: string
+          example: "Fuel Injector – Cummins ISX15"
+        category:
+          type: string
+          example: "Fuel System"
+        oem:
+          type: string
+          example: "Cummins"
+        compatibility:
+          type: array
+          items:
+            type: string
+          example: ["Kenworth T680", "Peterbilt 579"]
+        price:
+          type: number
+          format: float
+          example: 485.00
+        currency:
+          type: string
+          example: "USD"
+        availability:
+          type: string
+          enum: [In Stock, Limited Stock, Backordered]
+          example: "In Stock"
+        quantityOnHand:
+          type: integer
+          example: 14
+        leadTimeDays:
+          type: integer
+          example: 2
+        warehouse:
+          type: string
+          example: "Dallas, TX"
+        weight:
+          type: string
+          example: "2.3 lbs"
+        partCondition:
+          type: string
+          example: "New OEM"
