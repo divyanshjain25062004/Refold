@@ -1,0 +1,451 @@
+openapi: 3.0.3
+info:
+  title: Cisco Meraki Dashboard API — Scrut UAR Subset
+  version: "1.70.0"
+  description: |
+    Subset of the Cisco Meraki Dashboard API v1 required to power Scrut's
+    User Access Review (UAR) integration. Covers two operations:
+
+      1. GET /organizations          — discover all org IDs for the API key
+      2. GET /organizations/{id}/admins — list all dashboard admins in an org
+
+    ## Authentication
+    Pass the API key as a Bearer token in the Authorization header:
+
+        Authorization: Bearer <YOUR_MERAKI_API_KEY>
+
+    Generate your key:
+    Meraki Dashboard → Organization → API & Webhooks → API keys and access → Generate API Key
+
+    The key inherits the permissions of the admin account that generated it.
+    A read-only admin key is sufficient for all Scrut UAR operations.
+
+    ## Important: Follow Redirects
+    Meraki uses HTTP 307/302 redirects. Your HTTP client MUST follow redirects
+    while preserving the Authorization header:
+      - cURL: use -L --location-trusted
+      - Postman: enable "Follow Authorization header" in settings
+      - Node/fetch: the Refold platform handles this automatically
+
+    ## Rate Limits
+    10 requests per second per organization. Exceeding this returns HTTP 429
+    with a Retry-After header indicating seconds to wait.
+
+    ## Auth Error Behavior
+    Meraki intentionally returns 404 (not 401) for missing or incorrect API keys
+    to prevent resource existence disclosure.
+
+  contact:
+    name: Meraki Developer Community
+    url: https://meraki.io/community
+
+servers:
+  - url: https://api.meraki.com/api/v1
+    description: Cisco Meraki Dashboard API v1 — Global (most regions)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Organizations
+    description: Top-level org discovery. Used in Sync Users to retrieve all organization IDs accessible by the API key.
+  - name: Admins
+    description: Dashboard administrator listing per organization. Primary data source for Scrut UAR Sync Users and Get User by ID.
+
+paths:
+  /organizations:
+    get:
+      operationId: getOrganizations
+      summary: List all organizations for the API key
+      description: |
+        Returns all organizations that the API key has access to. In the Sync
+        Users workflow, this is always the first call on an initial (non-paginated)
+        request. The returned org IDs are used to drive per-org admin fetching.
+
+        This endpoint returns all orgs in a single response — no pagination required.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successful — list of accessible organizations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organization'
+              example:
+                - id: "2930418"
+                  name: "Acme Corp"
+                  url: "https://dashboard.meraki.com/o/VjjsAd/manage/organization/overview"
+                  api:
+                    enabled: true
+                  licensing:
+                    model: "co-term"
+                  cloud:
+                    region:
+                      name: "North America"
+                      host:
+                        name: "United States"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "429":
+          $ref: '#/components/responses/RateLimited'
+
+  /organizations/{organizationId}/admins:
+    get:
+      operationId: getOrganizationAdmins
+      summary: List all dashboard admins in an organization
+      description: |
+        Returns all dashboard administrators for the specified organization.
+        This is the primary endpoint driving both Scrut UAR workflows:
+
+          - Sync Users: called once per org; all admins returned in a single response
+          - Get User by ID: called for the admin's org, then filtered by admin ID in custom code
+
+        Response is a flat array — no pagination cursor in the body. All admins for
+        the org are returned in one call.
+
+        ## Key fields for Scrut UAR mapping:
+          - id          → user_id (composite: orgId_adminId)
+          - name        → name, first_name, last_name (split on first space)
+          - email       → email
+          - orgAccess   → role ("full" | "read-only" | "enterprise" | "none")
+          - twoFactorAuthEnabled → mfaEnabled
+          - lastActive  → updated_at (Meraki does not expose createdAt for admins)
+          - accountStatus → not in Scrut schema; all statuses are returned unfiltered
+      tags:
+        - Admins
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          description: |
+            The Meraki organization ID. Obtain from GET /organizations.
+            Example: "2930418"
+          schema:
+            type: string
+            example: "2930418"
+        - name: networkIds
+          in: query
+          required: false
+          description: |
+            Optional. Filter results to admins who have access to at least one
+            of the specified network IDs. Not used in the Scrut UAR workflow
+            (we want all admins regardless of network scope).
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: false
+          example: ["N_24329156", "N_78901234"]
+      responses:
+        "200":
+          description: Successful — array of all dashboard administrators in this org
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Admin'
+              example:
+                - id: "212406"
+                  name: "Miles Meraki"
+                  email: "miles@meraki.com"
+                  orgAccess: "full"
+                  accountStatus: "ok"
+                  twoFactorAuthEnabled: false
+                  hasApiKey: true
+                  lastActive: "2024-06-15T09:30:00.000Z"
+                  tags:
+                    - tag: "west"
+                      access: "read-only"
+                  networks:
+                    - id: "N_24329156"
+                      access: "full"
+                  authenticationMethod: "Email"
+                - id: "398712"
+                  name: "Dana Admin"
+                  email: "dana@acme.com"
+                  orgAccess: "read-only"
+                  accountStatus: "ok"
+                  twoFactorAuthEnabled: true
+                  hasApiKey: false
+                  lastActive: "2024-05-01T14:00:00.000Z"
+                  tags: []
+                  networks: []
+                  authenticationMethod: "Cisco SecureX Sign-On"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "429":
+          $ref: '#/components/responses/RateLimited'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Cisco Meraki API key used as a Bearer token.
+        Header: Authorization: Bearer <API_KEY>
+
+        Generate from:
+        Meraki Dashboard → Organization → API & Webhooks → API keys and access → Generate API Key
+
+        Notes:
+        - The key inherits the permissions of the generating admin account.
+        - A read-only admin key is sufficient for all Scrut UAR operations.
+        - Up to 2 API keys per admin identity; revoke and regenerate if lost.
+        - Keys are not stored in plaintext by Meraki — save it on generation.
+
+  schemas:
+    Organization:
+      type: object
+      description: A Meraki organization accessible by the API key
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique organization ID (numeric string)
+          example: "2930418"
+        name:
+          type: string
+          description: Organization display name
+          example: "Acme Corp"
+        url:
+          type: string
+          description: URL to the organization's Meraki Dashboard
+          example: "https://dashboard.meraki.com/o/VjjsAd/manage/organization/overview"
+        api:
+          type: object
+          description: API access configuration for this organization
+          properties:
+            enabled:
+              type: boolean
+              description: Whether Dashboard API access is enabled
+              example: true
+          additionalProperties: true
+        licensing:
+          type: object
+          properties:
+            model:
+              type: string
+              description: Licensing model (e.g., "co-term", "per-device")
+              example: "co-term"
+          additionalProperties: true
+        cloud:
+          type: object
+          properties:
+            region:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Cloud region name
+                  example: "North America"
+                host:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: Hosting country
+                      example: "United States"
+          additionalProperties: true
+      additionalProperties: true
+
+    Admin:
+      type: object
+      description: A Meraki dashboard administrator within an organization
+      required:
+        - id
+        - name
+        - email
+        - orgAccess
+        - accountStatus
+      properties:
+        id:
+          type: string
+          description: |
+            Admin's unique ID within this organization. Note: the same person
+            can have different admin IDs in different organizations. The Scrut UAR
+            workflow uses a composite key (orgId_adminId) to preserve context.
+          example: "212406"
+        name:
+          type: string
+          description: Admin's full display name
+          example: "Miles Meraki"
+        email:
+          type: string
+          format: email
+          description: Admin's email address (unique identity across Meraki)
+          example: "miles@meraki.com"
+        orgAccess:
+          type: string
+          enum:
+            - "enterprise"
+            - "full"
+            - "none"
+            - "read-only"
+          description: |
+            Admin's org-level access role. Maps to the Scrut UAR `role` field:
+            - "full"      → full organization administrator
+            - "read-only" → read-only access across the organization
+            - "enterprise" → enterprise-level access
+            - "none"      → access only via tags or network-level permissions
+          example: "full"
+        accountStatus:
+          type: string
+          enum:
+            - "locked"
+            - "ok"
+            - "pending"
+            - "unverified"
+          description: |
+            Current status of the admin account:
+            - "ok"         → active and usable
+            - "locked"     → locked out (too many failed attempts)
+            - "pending"    → invited but not yet accepted
+            - "unverified" → email not verified
+          example: "ok"
+        twoFactorAuthEnabled:
+          type: boolean
+          description: Whether 2FA is enabled for this admin. Maps to Scrut `mfaEnabled` field.
+          example: false
+        hasApiKey:
+          type: boolean
+          description: Whether this admin has generated a Meraki API key
+          example: true
+        lastActive:
+          type: string
+          format: date-time
+          description: |
+            ISO 8601 timestamp of the admin's last dashboard activity.
+            Maps to the Scrut UAR `updated_at` field.
+            Note: Meraki does not expose a createdAt timestamp for admins.
+          example: "2024-06-15T09:30:00.000Z"
+        tags:
+          type: array
+          description: Tag-scoped access grants (e.g., region-specific access)
+          items:
+            type: object
+            properties:
+              tag:
+                type: string
+                description: Tag value
+                example: "west"
+              access:
+                type: string
+                description: Access level for this tag ("full" or "read-only")
+                example: "read-only"
+        networks:
+          type: array
+          description: Network-level access grants (individual network overrides)
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Meraki network ID
+                example: "N_24329156"
+              access:
+                type: string
+                description: Access level for this network ("full" or "read-only")
+                example: "full"
+        authenticationMethod:
+          type: string
+          enum:
+            - "Cisco SecureX Sign-On"
+            - "Email"
+          description: Authentication method used by this admin
+          example: "Email"
+      additionalProperties: true
+
+  responses:
+    Unauthorized:
+      description: |
+        Unauthorized — invalid or missing API key.
+        Important: Meraki returns 404 (not 401) for auth failures to avoid
+        revealing resource existence. A true 401 is rare but possible.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errors:
+                type: array
+                items:
+                  type: string
+          example:
+            errors:
+              - "No valid authentication method provided"
+
+    Forbidden:
+      description: |
+        Forbidden — the API key's admin account lacks required permissions.
+        Ensure the key was generated by an admin with at minimum read-only
+        organization access.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errors:
+                type: array
+                items:
+                  type: string
+          example:
+            errors:
+              - "You do not have the permission to perform that action"
+
+    NotFound:
+      description: |
+        Not Found — the organization does not exist, OR the API key is missing/invalid.
+        Meraki returns 404 for auth failures to prevent resource disclosure.
+        Double-check both the organizationId and the API key.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errors:
+                type: array
+                items:
+                  type: string
+          example:
+            errors:
+              - "Not found. The requested resource does not exist."
+
+    RateLimited:
+      description: |
+        Too Many Requests — exceeded 10 requests/second for this organization.
+        Respect the Retry-After header before retrying.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before the next request.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errors:
+                type: array
+                items:
+                  type: string
+          example:
+            errors:
+              - "API rate limit exceeded for organization."
